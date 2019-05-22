@@ -433,9 +433,6 @@ void serialCheck() {        //Monitors serial for commands.  Must be called in r
         break;
 
       case 'y':
-        r = (read_angle()+(360.0 * wrap_count));          // hold the current position
-        SerialUSB.print("New setpoint ");
-        SerialUSB.println(r, 2);
         enableTCInterrupts();      //enable closed loop
         break;
 
@@ -453,14 +450,21 @@ void serialCheck() {        //Monitors serial for commands.  Must be called in r
         break;
 
       case 'x':
-        mode = 'x';           //position loop
+        r = (read_angle()+(360.0 * wrap_count));   // hold the current position
+        SerialUSB.print("position mode set at current position = ");
+        SerialUSB.println(r, 2);
+        mode = 'x';                                //position loop
         break;
 
       case 'v':
+        r = 0.0;
+        SerialUSB.println("velocity mode set at 0.0");
         mode = 'v';           //velocity loop
         break;
 
       case 't':
+        r = 0.0;
+        SerialUSB.println("torque mode set at 0.0");
         mode = 't';           //torque loop
         break;
 
@@ -528,6 +532,10 @@ void parameterQuery() {         //print current parameters in a format that can 
   SerialUSB.print(pLPF, DEC);
   SerialUSB.println(";");
 
+  SerialUSB.print("volatile float pAWi = ");
+  SerialUSB.print(pAWi, DEC);
+  SerialUSB.println(";");
+
   SerialUSB.println(' ');
 
   SerialUSB.print("volatile float vKp = ");
@@ -548,7 +556,11 @@ void parameterQuery() {         //print current parameters in a format that can 
   SerialUSB.print("volatile float vLPF = ");
   SerialUSB.print(vLPF, DEC);
   SerialUSB.println(";");
+  SerialUSB.print("volatile float vAWi = ");
+  SerialUSB.print(vAWi, DEC);
+  SerialUSB.println(";");
 
+/*
   SerialUSB.println("");
   SerialUSB.println("//This is the encoder lookup table (created by calibration routine)");
   SerialUSB.println("");
@@ -560,7 +572,7 @@ void parameterQuery() {         //print current parameters in a format that can 
   }
   SerialUSB.println("");
   SerialUSB.println("};");
-
+*/
 }
 
 
@@ -772,30 +784,35 @@ void antiCoggingCal() {       //This is still under development...  The idea is 
   enableTCInterrupts();
   delay(1000);
 
-
   for (int i = 1; i < 657; i++) {
+    int avg_ct = 10;
+    float u_avg = 0.0;
     r = lookup[i];
     SerialUSB.print(r, DEC);
     SerialUSB.print(" , ");
     delay(100);
-    SerialUSB.println(u, DEC);
+    for(int j=0; j<avg_ct; j++){
+      u_avg += u;
+    }
+    SerialUSB.println(u_avg/avg_ct, DEC);
   }
   SerialUSB.println(" -----------------REVERSE!----------------");
 
   for (int i = 656; i > 0; i--) {
+    int avg_ct = 10;
+    float u_avg = 0.0;
     r = lookup[i];
     SerialUSB.print(r, DEC);
     SerialUSB.print(" , ");
     delay(100);
-    SerialUSB.println(u, DEC);
+    for(int j=0; j<avg_ct; j++){
+      u_avg += u;
+    }
+    SerialUSB.println(u_avg/avg_ct, DEC);
   }
   SerialUSB.println(" -----------------DONE!----------------");
   disableTCInterrupts();
 }
-
-
-
-
 
 void parameterEditmain() {
 
@@ -850,8 +867,10 @@ void parameterEditp() {
     SerialUSB.println(pKi, DEC);
     SerialUSB.print("d ----- pKd = ");
     SerialUSB.println(pKd, DEC);
-    SerialUSB.print("l----- LPF = ");
+    SerialUSB.print("l----- pLPF = ");
     SerialUSB.println(pLPF,DEC);
+    SerialUSB.print("w----- pAWi = ");
+    SerialUSB.println(pAWi,DEC);
     SerialUSB.println("q ----- quit");
     SerialUSB.println();
     
@@ -901,6 +920,16 @@ void parameterEditp() {
           SerialUSB.println("");
         }
         break;
+      case 'w':
+        {
+          SerialUSB.println("pAWi = ?");
+          while (SerialUSB.available() == 0)  {}
+          pAWi = SerialUSB.parseFloat();
+          SerialUSB.print("new pAWi = ");
+          SerialUSB.println(pAWi, DEC);
+          SerialUSB.println("");
+        }
+        break;
       case 'q':
         {  
           quit = true;
@@ -908,8 +937,11 @@ void parameterEditp() {
           SerialUSB.println("done...");
           SerialUSB.println("");
         }
+        break;
       default:
-        {}
+        {
+          SerialUSB.println("unknown command character");
+        }
         break;
     }
   }
@@ -928,12 +960,14 @@ void parameterEditv() {
     SerialUSB.println(vKd, DEC);
     SerialUSB.print("l ----- vLPF = ");
     SerialUSB.println(vLPF, DEC);
+    SerialUSB.print("w ----- vAWi = ");
+    SerialUSB.println(vAWi, DEC);
     SerialUSB.println("q ----- quit");
     SerialUSB.println();
   
     while (SerialUSB.available() == 0)  {}
     char inChar4 = (char)SerialUSB.read();
-  
+    
     switch (inChar4) {
       case 'p':
         {
@@ -971,6 +1005,16 @@ void parameterEditv() {
           vLPFb = (1.0-vLPFa)* Fs * 0.16666667;
           SerialUSB.print("new vLPF = ");
           SerialUSB.println(vLPF, DEC);
+          SerialUSB.println("");
+        }
+        break;
+      case 'w':
+        {
+          SerialUSB.println("vAWi = ?");
+          while (SerialUSB.available() == 0)  {}
+          vAWi = SerialUSB.parseFloat();
+          SerialUSB.print("new vAWi = ");
+          SerialUSB.println(vAWi, DEC);
           SerialUSB.println("");
         }
         break;

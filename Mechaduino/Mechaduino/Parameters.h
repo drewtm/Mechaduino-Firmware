@@ -15,15 +15,15 @@ extern volatile float pKp;
 extern volatile float pKi;
 extern volatile float pKd;
 extern volatile float pLPF;
-
+extern volatile float pAWi;
 
 extern volatile float vKp;
 extern volatile float vKi;
 extern volatile float vKd;
 extern volatile float vLPF;
+extern volatile float vAWi;
 
 extern const float lookup[];
-
 
 extern volatile float pLPFa;
 extern volatile float pLPFb;
@@ -60,11 +60,20 @@ extern const int sin_1[];
 #define dir_pin 0
 #define enable_pin 2
 
+#define SWAP_A_COIL
+
 //for faster digitalWrite:
-#define IN_1_HIGH() (REG_PORT_OUTSET0 = PORT_PA06)
-#define IN_1_LOW() (REG_PORT_OUTCLR0 = PORT_PA06)
-#define IN_2_HIGH() (REG_PORT_OUTSET0 = PORT_PA21)
-#define IN_2_LOW() (REG_PORT_OUTCLR0 = PORT_PA21)
+#ifdef SWAP_A_COIL
+  #define IN_1_LOW() (REG_PORT_OUTSET0 = PORT_PA06)
+  #define IN_1_HIGH() (REG_PORT_OUTCLR0 = PORT_PA06)
+  #define IN_2_LOW() (REG_PORT_OUTSET0 = PORT_PA21)
+  #define IN_2_HIGH() (REG_PORT_OUTCLR0 = PORT_PA21)
+#else
+  #define IN_1_HIGH() (REG_PORT_OUTSET0 = PORT_PA06)
+  #define IN_1_LOW() (REG_PORT_OUTCLR0 = PORT_PA06)
+  #define IN_2_HIGH() (REG_PORT_OUTSET0 = PORT_PA21)
+  #define IN_2_LOW() (REG_PORT_OUTCLR0 = PORT_PA21)
+#endif
 #define IN_3_HIGH() (REG_PORT_OUTSET0 = PORT_PA15)
 #define IN_3_LOW() (REG_PORT_OUTCLR0 = PORT_PA15)
 #define IN_4_HIGH() (REG_PORT_OUTSET0 = PORT_PA20)

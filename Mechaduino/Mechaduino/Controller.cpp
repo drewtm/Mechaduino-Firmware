@@ -33,8 +33,8 @@ void TC5_Handler() {                // gets called with FPID frequency
             e = (r - yw);
             
             ITerm += (pKi * e);                             //Integral wind up limit
-            if (ITerm > 150.0) ITerm = 150.0;
-            else if (ITerm < -150.0) ITerm = -150.0;          
+            if (ITerm > pAWi) ITerm = pAWi;
+            else if (ITerm < -pAWi) ITerm = -pAWi;          
            
             DTerm = pLPFa*DTerm -  pLPFb*pKd*(yw-yw_1);
            
@@ -49,8 +49,8 @@ void TC5_Handler() {                // gets called with FPID frequency
           e = (r - v);   //error in degrees per rpm (sample frequency in Hz * (60 seconds/min) / (360 degrees/rev) )
 
           ITerm += (vKi * e);                 //Integral wind up limit
-          if (ITerm > 200) ITerm = 200;
-          else if (ITerm < -200) ITerm = -200;
+          if (ITerm > vAWi) ITerm = vAWi;
+          else if (ITerm < -vAWi) ITerm = -vAWi;
         
           u = ((vKp * e) + ITerm - (vKd * (e-e_1)));
           
@@ -113,11 +113,3 @@ void TC5_Handler() {                // gets called with FPID frequency
 
 
 }
-
-
-
-
-
-
-
-

@@ -7,31 +7,27 @@
 
 //----Current Parameters-----
 
-volatile float Fs = 6500.0;   //Sample frequency in Hz
+volatile float Fs = 6000.0;   //Sample frequency in Hz
 
 volatile float pKp = 15.0;      //position mode PID values.  Depending on your motor/load/desired performance, you will need to tune these values.  You can also implement your own control scheme
 volatile float pKi = 0.2;
 volatile float pKd = 250.0;//1000.0;
 volatile float pLPF = 30;       //break frequency in hertz
+volatile float pAWi = 150.0;      //integral anti-windup limit
 
-volatile float vKp = 0.001;       //velocity mode PID values.  Depending on your motor/load/desired performance, you will need to tune these values.  You can also implement your own control scheme
-volatile float vKi = 0.001;
+volatile float vKp = 3.0;       //velocity mode PID values.  Depending on your motor/load/desired performance, you will need to tune these values.  You can also implement your own control scheme
+volatile float vKi = 0.0001;
 volatile float vKd = 0.0;
-volatile float vLPF = 100.0;       //break frequency in hertz
+volatile float vLPF = 120.0;    //break frequency in hertz
+volatile float vAWi = 200.0;      //integral anti-windup limit
 
 // This is the encoder lookup table (created by calibration routine):
+const float __attribute__((__aligned__(256))) lookup[16384] = {};
 
-const float __attribute__((__aligned__(256))) lookup[16384] = {
-//Put lookup table here!
-};
-
-
-
-volatile float pLPFa = exp(pLPF*-2*3.14159/Fs); // z = e^st pole mapping
+volatile float pLPFa = exp(pLPF*(-2.0*3.14159)/Fs); // z = e^st pole mapping
 volatile float pLPFb = (1.0-pLPFa);
-volatile float vLPFa = exp(vLPF*-2*3.14159/Fs); // z = e^st pole mapping
+volatile float vLPFa = exp(vLPF*(-2.0*3.14159)/Fs); // z = e^st pole mapping
 volatile float vLPFb = (1.0-vLPFa)* Fs * 0.16666667;
-
 
 const int spr = 200;                // 200 steps per revolution  -- for 400 step/rev, you should only need to edit this value
 const float aps = 360.0/ spr;       // angle per step
@@ -40,7 +36,7 @@ const float stepangle = aps/32.0;   // for step/dir interrupt: aps/32 is the equ
 
 volatile float PA = aps;            // Phase advance...aps = 1.8 for 200 steps per rev, 0.9 for 400
 
-const float iMAX = 1.0;             // Be careful adjusting this.  While the A4954 driver is rated for 2.0 Amp peak currents, it cannot handle these currents continuously.  Depending on how you operate the Mechaduino, you may be able to safely raise this value...please refer to the A4954 datasheet for more info
+const float iMAX = 0.80;             // Be careful adjusting this.  While the A4954 driver is rated for 2.0 Amp peak currents, it cannot handle these currents continuously.  Depending on how you operate the Mechaduino, you may be able to safely raise this value...please refer to the A4954 datasheet for more info
 const float rSense = 0.150;
 volatile int uMAX = (255/3.3)*(iMAX*10*rSense);   // 255 for 8-bit pwm, 1023 for 10 bit, must also edit analogFastWrite
 
