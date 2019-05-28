@@ -20,11 +20,15 @@
 
 	void output(float theta, int effort);	  //calculates phase currents (commutation) and outputs to Vref pins
 
+  int encoderWrap(int thisReading, int lastReading);
+
 	void calibrate();	                //calibration routine
 		
 	void serialCheck();               //checks serial port for commands.  Must include this in loop() for serial interface to work
 
 	void parameterQuery();            //Prints current parameters
+
+  void calibrationQuery();          //print out the calibration table
 	
 	void oneStep(void);               //take one step
 		
@@ -36,7 +40,7 @@
 	
 	void receiveEvent(int howMany);   //for i2c interface...
 	
-	int mod(int xMod, int mMod);      //modulo, handles negative values properly    
+	int mod(int xMod, int mMod);      //modulo, handles negative values properly
 	
 	void setupTCInterrupts();         //configures control loop interrupt
 	
@@ -67,10 +71,3 @@
   void moveAbs(float pos_final,int vel_max, int accel);     // Generates trapezoidal motion profile for closed loop position mode
   
 #endif
-
-
-
-
-
-
-

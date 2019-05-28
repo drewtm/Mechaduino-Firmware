@@ -7,9 +7,9 @@
 #include "Utils.h"
 #include "Parameters.h"
 
-
 void TC5_Handler() {                // gets called with FPID frequency
-  
+  static unsigned long calctime = 0;          //time the control calculation
+  //unsigned long oldmicros = micros();
   static int print_counter = 0;               //this is used by step response
 
   if (TC5->COUNT16.INTFLAG.bit.OVF == 1) {    // A counter overflow caused the interrupt
@@ -18,11 +18,10 @@ void TC5_Handler() {                // gets called with FPID frequency
 
     y = lookup[readEncoder()];                    //read encoder and lookup corrected angle in calibration lookup table
    
-    if ((y - y_1) < -180.0) wrap_count += 1;      //Check if we've rotated more than a full revolution (have we "wrapped" around from 359 degrees to 0 or ffrom 0 to 359?)
-    else if ((y - y_1) > 180.0) wrap_count -= 1;
+    if ((y - y_1) < -PI) wrap_count += 1;      //Check if we've rotated more than a full revolution (have we "wrapped" around from 2PI to 0 or from 0 to 2PI?)
+    else if ((y - y_1) > PI) wrap_count -= 1;
 
-    yw = (y + (360.0 * wrap_count));              //yw is the wrapped angle (can exceed one revolution)
-
+    yw = (y + (2.0*PI * wrap_count));              //yw is the wrapped angle (can exceed one revolution)
 
     if (mode == 'h') {                            //choose control algorithm based on mode
       hybridControl();                            // hybrid control is still under development...
@@ -30,23 +29,22 @@ void TC5_Handler() {                // gets called with FPID frequency
     else {
       switch (mode) {
         case 'x':         // position control                        
-            e = (r - yw);
+            e = (r - yw);                                  //error in radians
             
             ITerm += (pKi * e);                             //Integral wind up limit
             if (ITerm > pAWi) ITerm = pAWi;
             else if (ITerm < -pAWi) ITerm = -pAWi;          
-           
-            DTerm = pLPFa*DTerm -  pLPFb*pKd*(yw-yw_1);
-           
+            
+            DTerm = pKd*pLPF.filterIn((yw-yw_1)/Fs);       //pass new rate into low pass filter object, which returns the filtered rate. rad/s
+            
             u = (pKp * e) + ITerm + DTerm;
-           
-           
+            
             break;
             
-        case 'v':         // velocity controlr
-          v = vLPFa*v +  vLPFb*(yw-yw_1);     //filtered velocity called "DTerm" because it is similar to derivative action in position loop
+        case 'v':         // velocity controller
+          v = vLPF.filterIn((yw-yw_1)/Fs);
 
-          e = (r - v);   //error in degrees per rpm (sample frequency in Hz * (60 seconds/min) / (360 degrees/rev) )
+          e = (r - v);   //error in rad/s
 
           ITerm += (vKi * e);                 //Integral wind up limit
           if (ITerm > vAWi) ITerm = vAWi;
@@ -98,18 +96,17 @@ void TC5_Handler() {                // gets called with FPID frequency
     u_1 = u;
     yw_1 = yw;
     //y_1 = y;
-    
-    if (print_yw ==  true){       //for step resonse... still under development
+    //calctime = calctime*9/10 + (micros()-oldmicros)/10;
+    if (print_yw == true){       //for debugging
       print_counter += 1;  
-      if (print_counter >= 5){    // print position every 5th loop (every time is too much data for plotter and may slow down control loop
-        SerialUSB.println(int(yw*1024));    //*1024 allows us to print ints instead of floats... may be faster
+      if (print_counter >= 100){    // print position every 5th loop (every time is too much data for plotter and may slow down control loop
+        SerialUSB.println(u);       //
         print_counter = 0;
       }
     }
+    
     TC5->COUNT16.INTFLAG.bit.OVF = 1;    // writing a one clears the flag ovf flag
     TEST1_LOW();            //for testing the control loop timing
-
   }
-
 
 }

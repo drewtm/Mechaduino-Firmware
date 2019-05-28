@@ -1,42 +1,40 @@
 //Contains the Mechaduino parameter declarations
+#include <filters.h>
 
 #ifndef __PARAMETERS_H__
 #define __PARAMETERS_H__
 
-#define firmware_version "0.1.5"    //firmware version
+#define firmware_version "0.1.6"    //firmware version
 #define identifier "x"              // change this to help keep track of multiple mechaduinos (printed on startup)
+#define ENCODERCOUNTS 16384
 
 //----Current Parameters-----
 
 extern volatile float Ts;
 extern volatile float Fs;
+extern IIR::ORDER  LPForder;
 
 extern volatile float pKp;
 extern volatile float pKi;
 extern volatile float pKd;
-extern volatile float pLPF;
+extern volatile float pcut;
+extern Filter pLPF;
 extern volatile float pAWi;
 
 extern volatile float vKp;
 extern volatile float vKi;
 extern volatile float vKd;
-extern volatile float vLPF;
+extern volatile float vcut;
+extern Filter vLPF;
 extern volatile float vAWi;
 
 extern const float lookup[];
 
-extern volatile float pLPFa;
-extern volatile float pLPFb;
-extern volatile float vLPFa;
-extern volatile float vLPFb;
-
-
-extern const int spr; //  200 steps per revolution
-extern const float aps; // angle per step
-extern int cpr; //counts per rev
+extern const int spr;
+extern const float aps;
 extern const float stepangle;
 
-extern volatile float PA;  //
+extern volatile float PA;
 
 extern const float iMAX;
 extern const float rSense;

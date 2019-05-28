@@ -41,6 +41,7 @@
 
 */
 
+#include <filters.h>
 #include "Utils.h"
 #include "Parameters.h"
 #include "State.h"
@@ -89,7 +90,6 @@ void loop()                 // main loop
 {
 
   serialCheck();              //must have this execute in loop for serial commands to function
-
-  //r=0.1125*step_count;      //Don't use this anymore. Step interrupts enabled above by "configureStepDir()", adjust step size ("stepangle")in parameters.cpp
+  //if(millis()%500==0)SerialUSB.println(v);
 
 }

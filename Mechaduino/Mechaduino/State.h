@@ -3,7 +3,6 @@
 #ifndef __STATE_H__
 #define __STATE_H__
 
-
 //interrupt vars
 
 extern volatile int U;  //control effort (abs)
