@@ -9,6 +9,7 @@ volatile float v = 0.0;  // estimated velocity  (velocity loop)
 volatile float yw = 0.0;  // "wrapped" angle (not limited to 0-2PI)
 volatile float yw_1 = 0.0;  //previous wrapped angle
 volatile float e = 0.0;   // e = r-y (error)
+volatile float de = 0.0;  // derivative of error
 volatile float p = 0.0;   // proportional effort
 volatile float i = 0.0;   // integral effort
 
@@ -28,9 +29,8 @@ volatile long step_count = 0;  //For step/dir interrupt (closed loop)
 int stepNumber = 0; // open loop step number (used by 's' and for cal routine)
 
 volatile float ITerm;
-volatile float DTerm;
 
 char mode;
 volatile bool dir = false;  
 
-bool print_yw = false;      //for step response, under development...
+bool print_yw = true;      //for step response, under development...

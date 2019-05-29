@@ -11,7 +11,8 @@ extern volatile float y;  // measured angle
 extern volatile float v;  // estimated velocity (velocity loop)
 extern volatile float yw;
 extern volatile float yw_1;
-extern volatile float e;  // e = r-y (error)
+extern volatile float e;  // e = yw-r (error)
+extern volatile float de; // derivative of error
 extern volatile float p;  // proportional effort
 extern volatile float i;  // integral effort
 
@@ -32,7 +33,6 @@ extern int stepNumber; // step index for cal routine
 
 
 extern volatile float ITerm;
-extern volatile float DTerm;
 extern char mode;
 extern int dir;
 

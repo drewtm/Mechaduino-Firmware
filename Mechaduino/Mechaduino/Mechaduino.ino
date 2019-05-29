@@ -90,6 +90,12 @@ void loop()                 // main loop
 {
 
   serialCheck();              //must have this execute in loop for serial commands to function
-  //if(millis()%500==0)SerialUSB.println(v);
+  if(millis()%5000==0){
+    while((millis()%5000)<100){
+      SerialUSB.print(de);
+      SerialUSB.print(" ");
+      SerialUSB.println();
+    }
+  }
 
 }

@@ -26,7 +26,10 @@ extern volatile float vKi;
 extern volatile float vKd;
 extern volatile float vcut;
 extern Filter vLPF;
+extern Filter aLPF;
 extern volatile float vAWi;
+
+extern volatile float tK;
 
 extern const float lookup[];
 
@@ -93,7 +96,5 @@ extern const int sin_1[];
   #define TEST1_HIGH()
   #define TEST1_LOW() 
 #endif
-
-
 
 #endif

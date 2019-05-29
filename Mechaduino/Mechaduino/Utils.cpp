@@ -1,6 +1,5 @@
 //Contains the definitions of the functions used by the firmware.
 
-
 #include <SPI.h>
 #include <Wire.h>
 #include <FlashStorage.h>
@@ -87,6 +86,7 @@ void enableInterrupt() {            //enable pin interrupt handler
     }
 }
 
+//theta is the current position of the stepper, possibly with a phase offset to lead the stepper motion
 void output(float theta, int effort) {
    int angle_1;
    int angle_2;
@@ -95,12 +95,16 @@ void output(float theta, int effort) {
 
    int sin_coil_A;
    int sin_coil_B;
-   float phase_multiplier = 10.0 * float(spr) / 4.0 * 360.0 / 2.0 / PI;
+   const float phase_multiplier = 10.0 * float(spr) / 4.0 * 360.0 / 2.0 / PI;
 
   //REG_PORT_OUTCLR0 = PORT_PA09; for debugging/timing
 
-  angle_1 = mod(int(phase_multiplier * theta), 3600);   //
+  angle_1 = mod(int(phase_multiplier * theta), 3600);
+  #ifdef SWAP_A_COIL
+  angle_2 = mod(int(phase_multiplier * theta)-900, 3600);
+  #else
   angle_2 = mod(int(phase_multiplier * theta)+900, 3600);
+  #endif
   
   sin_coil_A  = sin_1[angle_1];
 
@@ -187,58 +191,64 @@ int encoderWrap(int thisReading, int lastReading){
 
 void calibrate() {   /// this is the calibration routine
   
-  bool actuallyFlash = false;
+  bool actuallyFlash = true;         //enable this to actually write the calibration to flash memory
   int currentencoderReading = 0;
   int lastencoderReading = 0;
-  int avg = 8*2;             //how many readings to average. must be an even number.
-  int delaytime = 80;        //ms to wait for a step movement
+  int avg = 8*2;                      //how many readings to average. must be an even number.
+  int delaytime = 80;                 //ms to wait for a step movement
 
-  int iStart = 0;     //encoder zero position index
+  int iStart = 0;                     //encoder zero position index
   int jStart = 0;
   int stepNo = 0;
   
-  int fullStepReadings[spr];
-    
+  int fullStepReading[spr];
+  int phaseDiff[4] = {0, 0, 0, 0};
+  int PHord[4] = {0, 1, 2, 3};
+  
   int fullStep = 0;
   int ticks = 0;
   float lookupAngle = 0.0;
-  
-  fullStepReadings[0] = readEncoder();
-  dir = true;
-  oneStep();
-  delay(500);
 
-  if ((readEncoder() - fullStepReadings[0]) < 0)   //check which way motor moves when dir = true
-  {
-    SerialUSB.println("One coil is backward. Please switch the polarity of one phase");
-    SerialUSB.println("                      or #define SWAP_A_COIL in Parameters.h");    // You may get a false message if you happen to be near the point where the encoder rolls over...
-    return;
+  SerialUSB.println("Beginning calibration.");
+  SerialUSB.println("The stepper will spin at a moderate speed to the encoder zero postion, then slowly one revolution forward and one backward.");
+  
+  dir = true;
+  fullStepReading[0] = readEncoder();
+  oneStep();
+  delay(delaytime);
+
+  if ((readEncoder() - fullStepReading[0]) < 0) {    //check which way motor moves when dir = true
+    oneStep();
+    delay(delaytime);
+    fullStepReading[0] = readEncoder();
+    oneStep();
+    delay(delaytime);
+    if ((readEncoder() - fullStepReading[0]) < 0) {  //check again in case that was just the wraparound point
+      SerialUSB.println("One coil is backward. Please switch the polarity of one phase");
+      SerialUSB.println("                      or #define SWAP_A_COIL in Parameters.h");
+      return;
+    }
   }
 
   //quickly find the full step position that corresponds to the lowest encoder reading
   lastencoderReading = readEncoder();
   do{
     oneStep();
-    delay(delaytime/2);
+    delay(delaytime/8);
   } while(readEncoder() > lastencoderReading);
   
   for (int x = 0; x < spr; x++) {     //step through all full step positions forward, recording their encoder readings
 
-    fullStepReadings[x] = 0;
+    fullStepReading[x] = 0;
     delay(delaytime);                     //moving too fast may not give accurate readings.  Motor needs time to settle after each step.
     lastencoderReading = readEncoder();
         
     for (int reading = 0; reading < avg/2; reading++) {  //average multple readings at each step
       currentencoderReading = readEncoder();
       currentencoderReading = encoderWrap(currentencoderReading, lastencoderReading);
-      fullStepReadings[x] += currentencoderReading; //start accumulating many readings in this array
-      delay(2);                                     //wait a little bit between readings
+      fullStepReading[x] += currentencoderReading;       //start accumulating many readings in this array
+      delay(2);                                          //wait a little bit between readings
       lastencoderReading = currentencoderReading;
-    }
-
-    if(!actuallyFlash){
-      SerialUSB.print(fullStepReadings[x]/avg*2, DEC);      //print readings as a sanity check
-      SerialUSB.print(", ");
     }
     
     oneStep();
@@ -252,38 +262,69 @@ void calibrate() {   /// this is the calibration routine
   for(int k = 4; k>=0; k--) {oneStep(); delay(delaytime);}
   
   //now step through all full step positions backward, recording their encoder readings
-  for (int x = spr-1; x >=0; x--) {
+  for (int x = spr-1; x >=0; x--) {           //note the backward iterator, used to make x the same for each step as it was in the forward direction
     delay(delaytime);                         //moving too fast may not give accurate readings.  Motor needs time to settle after each step.
     lastencoderReading = readEncoder();
     for (int reading = 0; reading < avg/2; reading++) {  //average multple readings at each step
       currentencoderReading = readEncoder();
       currentencoderReading = encoderWrap(currentencoderReading, lastencoderReading);
-      fullStepReadings[x] += currentencoderReading;
+      fullStepReading[x] += currentencoderReading;
       delay(2);
       lastencoderReading = currentencoderReading;
     }
     
-    fullStepReadings[x] = fullStepReadings[x] / avg;
+    fullStepReading[x] = fullStepReading[x] / avg;
     
-    if (fullStepReadings[x]>ENCODERCOUNTS)
-      fullStepReadings[x] -= ENCODERCOUNTS;
-    else if (fullStepReadings[x]<0)
-      fullStepReadings[x] += ENCODERCOUNTS;
+    if (fullStepReading[x]>ENCODERCOUNTS)
+      fullStepReading[x] -= ENCODERCOUNTS;
+    else if (fullStepReading[x]<0)
+      fullStepReading[x] += ENCODERCOUNTS;
     
     if(!actuallyFlash){
-      SerialUSB.print(fullStepReadings[x], DEC);      //print readings as a sanity check
+      SerialUSB.print(fullStepReading[x], DEC);      //print readings as a sanity check
       SerialUSB.print(", ");
     }
     
     oneStep();
   }
+
+  dir=true;
+  oneStep(); //go back around the wrap to the step with minimum encoder count;
+
+  //for each of the four phase commutation modes, find the average distance from the previous one.
+  //this is used to identify discrepancy between the two phases.
+  for (int x=1; x<spr-1; x++) phaseDiff[x%4] += ( 2*fullStepReading[x] - fullStepReading[x-1] - fullStepReading[x+1] );
+  phaseDiff[0] += ( 2*fullStepReading[0] - (fullStepReading[spr-1]-ENCODERCOUNTS) - fullStepReading[1]);  //wrap the first difference to the other end of the array
+  phaseDiff[3] += ( 2*fullStepReading[spr-1] - fullStepReading[spr-2] - (fullStepReading[0]+ENCODERCOUNTS) ); //wrap the last difference to the other end of the array
+
+  for(int x=0; x<4; x++) {
+    phaseDiff[x] = round( float(phaseDiff[x]) / float(spr/4) / 2.0 );
+  }
+  
+  //SerialUSB.println();
+  for (int x=spr-1; x>=0; x--) {
+    fullStepReading[x] -= phaseDiff[x%4];
+    //SerialUSB.print(fullStepReading[x]);
+    //SerialUSB.print(", ");
+  }
   SerialUSB.println();
+  
+  /*//sort the four phases from highest to lowest offset
+  for(int x=0; x<3; x++){
+    for(int xx=x+1; xx<4; xx++){
+      if(phaseDiff[PHord[x]] < phaseDiff[PHord[xx]]){
+        int temp = PHord[x];
+        PHord[x] = PHord[xx];
+        PHord[xx] = temp;
+      }
+    }
+  }*/
 
  // SerialUSB.println(" ");
  // SerialUSB.println("ticks:");                        //"ticks" represents the number of encoder counts between successive steps... these should be around 82 for a 1.8 degree stepper
  // SerialUSB.println(" ");
   for (int i = 0; i < spr; i++) {
-    ticks = fullStepReadings[mod((i + 1), spr)] - fullStepReadings[mod((i), spr)];
+    ticks = fullStepReading[mod((i + 1), spr)] - fullStepReading[mod((i), spr)];
     if (ticks < -15000) {
       ticks += ENCODERCOUNTS;
 
@@ -295,7 +336,7 @@ void calibrate() {   /// this is the calibration routine
 
     if (ticks > 1) {                                    //note starting point with iStart,jStart
       for (int j = 0; j < ticks; j++) {
-        stepNo = (mod(fullStepReadings[i] + j, ENCODERCOUNTS));
+        stepNo = (mod(fullStepReading[i] + j, ENCODERCOUNTS));
         // SerialUSB.println(stepNo);
         if (stepNo == 0) {
           iStart = i;
@@ -307,7 +348,7 @@ void calibrate() {   /// this is the calibration routine
 
     if (ticks < 1) {                                    //note starting point with iStart,jStart
       for (int j = -ticks; j > 0; j--) {
-        stepNo = (mod(fullStepReadings[spr - 1 - i] + j, ENCODERCOUNTS));
+        stepNo = (mod(fullStepReading[spr - 1 - i] + j, ENCODERCOUNTS));
         // SerialUSB.println(stepNo);
         if (stepNo == 0) {
           iStart = i;
@@ -333,7 +374,7 @@ void calibrate() {   /// this is the calibration routine
   if(actuallyFlash) SerialUSB.print(NVMCTRL->PARAM.bit.PSZ);
 
   for (int i = iStart; i < (iStart + spr + 1); i++) {
-    ticks = fullStepReadings[mod((i + 1), spr)] - fullStepReadings[mod((i), spr)];
+    ticks = fullStepReading[mod((i + 1), spr)] - fullStepReading[mod((i), spr)];
 
     if (ticks < -15000) {           //check if current interval wraps over encoder's zero positon
       ticks += ENCODERCOUNTS;
@@ -439,10 +480,6 @@ void serialCheck() {        //Monitors serial for commands.  Must be called in r
           dir = true;
         }
         break;
-
-      case 'w':                //old command
-        calibrate();           //cal routine
-        break;
         
       case 'c':
         calibrate();           //cal routine
@@ -457,13 +494,15 @@ void serialCheck() {        //Monitors serial for commands.  Must be called in r
         break;
 
       case 'y':
+        ITerm = 0;
         enableTCInterrupts();      //enable closed loop
         break;
 
       case 'n':
         disableTCInterrupts();      //disable closed loop
+        ITerm = 0;
         analogFastWrite(VREF_2, 0);     //set phase currents to zero
-        analogFastWrite(VREF_1, 0);                       
+        analogFastWrite(VREF_1, 0);
         break;
 
       case 'r':             //new setpoint
@@ -907,9 +946,11 @@ void parameterEditp() {
         break;
       case 'i':
         {
+          float old = pKi;
           SerialUSB.println("pKi = ?");
           while (SerialUSB.available() == 0)  {}
           pKi = SerialUSB.parseFloat();
+          ITerm = ITerm*old/pKi;
           SerialUSB.print("new pKi = ");
           SerialUSB.println(pKi, DEC);
           SerialUSB.println("");
@@ -996,9 +1037,11 @@ void parameterEditv() {
         break;
       case 'i':
         {
+          float old = vKi;
           SerialUSB.println("vKi = ?");
           while (SerialUSB.available() == 0)  {}
           vKi = SerialUSB.parseFloat();
+          ITerm = ITerm*old/vKi;
           SerialUSB.print("new vKi = ");
           SerialUSB.println(vKi, DEC);
         }
@@ -1049,13 +1092,11 @@ void parameterEditv() {
 
 void parameterEdito() {
 
-
   SerialUSB.println("Edit other parameters:");
   SerialUSB.println();
   SerialUSB.print("p ----- PA = ");
   SerialUSB.println(PA, DEC);
   SerialUSB.println();
-
 
   while (SerialUSB.available() == 0)  {}
   char inChar3 = (char)SerialUSB.read();
@@ -1076,8 +1117,6 @@ void parameterEdito() {
       break;
   }
 }
-
-
 
 void hybridControl() {        //still under development
 
@@ -1147,7 +1186,6 @@ void sineGen() {
    SerialUSB.print(temp);
    SerialUSB.print(", ");  
   }
-
 }
 
 void stepResponse() {     // not done yet...
@@ -1187,7 +1225,6 @@ void stepResponse() {     // not done yet...
   r = 0;
   delay(500);
   disableTCInterrupts();
-
 }
 
 
@@ -1276,11 +1313,7 @@ void moveRel(float pos_final,int vel_max, int accel){
   }
   r = r0 +pos_final;
   //SerialUSB.print(micros()-start);
-  
 }
-
-
-
 
 void moveAbs(float pos_final,int vel_max, int accel){
   
@@ -1365,5 +1398,4 @@ void moveAbs(float pos_final,int vel_max, int accel){
   }
   r = pos_final;
   //SerialUSB.print(micros()-start);
-  
 }
