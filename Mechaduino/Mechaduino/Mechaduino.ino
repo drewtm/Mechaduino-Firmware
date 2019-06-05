@@ -46,6 +46,7 @@
 #include "Parameters.h"
 #include "State.h"
 #include "analogFastWrite.h"
+#include "serialUtils.h"
 
 //////////////////////////////////////
 /////////////////SETUP////////////////
@@ -90,12 +91,12 @@ void loop()                 // main loop
 {
 
   serialCheck();              //must have this execute in loop for serial commands to function
-  if(millis()%5000==0){
-    while((millis()%5000)<100){
-      SerialUSB.print(de);
-      SerialUSB.print(" ");
-      SerialUSB.println();
-    }
-  }
+//  if(millis()%1000==0){
+//    while((millis()%500)<50){
+//      SerialUSB.print(y);
+//      SerialUSB.print(" , ");
+//      SerialUSB.println(u);
+//    }
+//  }
 
 }

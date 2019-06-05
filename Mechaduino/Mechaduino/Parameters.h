@@ -43,6 +43,7 @@ extern const float iMAX;
 extern const float rSense;
 extern volatile int uMAX;
 
+extern int directionSwap;
 
 extern const int sin_1[];
 
@@ -61,20 +62,11 @@ extern const int sin_1[];
 #define dir_pin 0
 #define enable_pin 2
 
-#define SWAP_A_COIL
+#define IN_1_HIGH() (REG_PORT_OUTSET0 = PORT_PA06)
+#define IN_1_LOW() (REG_PORT_OUTCLR0 = PORT_PA06)
+#define IN_2_HIGH() (REG_PORT_OUTSET0 = PORT_PA21)
+#define IN_2_LOW() (REG_PORT_OUTCLR0 = PORT_PA21)
 
-//for faster digitalWrite:
-#ifdef SWAP_A_COIL
-  #define IN_1_LOW() (REG_PORT_OUTSET0 = PORT_PA06)
-  #define IN_1_HIGH() (REG_PORT_OUTCLR0 = PORT_PA06)
-  #define IN_2_LOW() (REG_PORT_OUTSET0 = PORT_PA21)
-  #define IN_2_HIGH() (REG_PORT_OUTCLR0 = PORT_PA21)
-#else
-  #define IN_1_HIGH() (REG_PORT_OUTSET0 = PORT_PA06)
-  #define IN_1_LOW() (REG_PORT_OUTCLR0 = PORT_PA06)
-  #define IN_2_HIGH() (REG_PORT_OUTSET0 = PORT_PA21)
-  #define IN_2_LOW() (REG_PORT_OUTCLR0 = PORT_PA21)
-#endif
 #define IN_3_HIGH() (REG_PORT_OUTSET0 = PORT_PA15)
 #define IN_3_LOW() (REG_PORT_OUTCLR0 = PORT_PA15)
 #define IN_4_HIGH() (REG_PORT_OUTSET0 = PORT_PA20)

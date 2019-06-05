@@ -3,7 +3,6 @@
 #ifndef __UTILS_H__
 #define __UTIL_H__
 
-
 	void setupPins();                 // initializes pins
 	
 	void setupSPI();                  //initializes SPI
@@ -20,23 +19,11 @@
 
 	void output(float theta, int effort);	  //calculates phase currents (commutation) and outputs to Vref pins
 
-  int encoderWrap(int thisReading, int lastReading);
-
-	void calibrate();	                //calibration routine
-		
-	void serialCheck();               //checks serial port for commands.  Must include this in loop() for serial interface to work
-
-	void parameterQuery();            //Prints current parameters
-
-  void calibrationQuery();          //print out the calibration table
+  float read_angle();               //get an average from a few readings from the encoder
 	
 	void oneStep(void);               //take one step
 		
 	int readEncoder();                //read raw encoder position
-	  
-	void readEncoderDiagnostics();    //check encoder diagnostics registers
-		
-	void print_angle();               //for debigging purposes in open loop mode:  prints [step number] , [encoder reading]
 	
 	void receiveEvent(int howMany);   //for i2c interface...
 	
@@ -47,22 +34,8 @@
 	void enableTCInterrupts();        //enables control loop interrupt.  Use this to enable "closed-loop" modes
 	
 	void disableTCInterrupts();       //disables control loop interrupt.  Use this to diable "closed-loop" mode
-	
-	void antiCoggingCal();            //under development...
-	
-	void parameterEditmain();         //parameter editing menu
-	
-	void parameterEditp();            //parameter editing menu
-	
-	void parameterEditv();            //parameter editing menu
-	
-	void parameterEdito();            //parameter editing menu
 
   void hybridControl();             //open loop stepping, but corrects for missed steps.  under development
-
-  void serialMenu();                //main menu
-  
-  void sineGen();                   //generates sinusoidal commutation table. you can experiment with other commutation profiles 
 
   void stepResponse();              //generates position mode step response in Serial Plotter
 
