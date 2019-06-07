@@ -37,13 +37,14 @@ extern const int spr;
 extern const float aps;
 extern const float stepangle;
 
-extern volatile float PA;
+extern volatile int PA;
 
 extern const float iMAX;
 extern const float rSense;
 extern volatile int uMAX;
 
 extern int directionSwap;
+extern const int sineTableSize;
 
 extern const int sin_1[];
 

@@ -70,22 +70,26 @@ void serialCheck() {        //Monitors serial for commands.  Must be called in r
         SerialUSB.print("position mode set at current position = ");
         SerialUSB.println(r, 2);
         mode = 'x';                                //position loop
+        ITerm = 0;
         break;
 
       case 'v':
         r = 0.0;
         SerialUSB.println("velocity mode set at 0.0");
         mode = 'v';           //velocity loop
+        ITerm = 0;
         break;
 
       case 't':
         r = 0.0;
         SerialUSB.println("torque mode set at 0.0");
         mode = 't';           //torque loop
+        ITerm = 0;
         break;
 
       case 'h':               //hybrid mode
         mode = 'h';
+        ITerm = 0;
         break;
 
       case 'q':

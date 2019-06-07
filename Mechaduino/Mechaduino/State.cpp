@@ -32,9 +32,7 @@ volatile float y_1 = 0;
 volatile long step_count = 0;  //For step/dir interrupt (closed loop)
 int stepNumber = 0; // open loop step number (used by 's' and for cal routine)
 
-
-
 char mode;
-volatile bool dir = false;  
+volatile bool dir = true;  
 
 bool print_yw = true;      //for step response, under development...

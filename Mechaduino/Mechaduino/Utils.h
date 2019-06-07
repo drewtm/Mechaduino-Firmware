@@ -17,7 +17,7 @@
 
   void enableInterrupt();           //enable pin interrupt handler
 
-	void output(float theta, int effort);	  //calculates phase currents (commutation) and outputs to Vref pins
+	void output(float theta, int effort, int phaseShift = 0);	  //calculates phase currents (commutation) and outputs to Vref pins
 
   float read_angle();               //get an average from a few readings from the encoder
 	

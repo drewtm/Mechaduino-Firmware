@@ -20,7 +20,6 @@ void setupPins() {
   pinMode(IN_1, OUTPUT);
 
   pinMode(chipSelectPin, OUTPUT); // CSn -- has to toggle high and low to signal chip to start data transfer
-
   
 #ifdef ENABLE_PROFILE_IO  
   pinMode(TEST1, OUTPUT);
@@ -42,14 +41,11 @@ void setupPins() {
 }
 
 void setupSPI() {
-
   SPISettings settingsA(10000000, MSBFIRST, SPI_MODE1);             ///400000, MSBFIRST, SPI_MODE1);
-
   SPI.begin();    //AS5047D SPI uses mode=1 (CPOL=0, CPHA=1)
   SerialUSB.println("Beginning SPI communication with AS5047 encoder...");
   delay(1000);
   SPI.beginTransaction(settingsA);
-
 }
 
 void configureStepDir() {
@@ -63,7 +59,6 @@ void configureEnablePin() {
   pinMode(enable_pin, INPUT);
   attachInterrupt(enable_pin, enableInterrupt, CHANGE);
 }
-
 
 void stepInterrupt() {
   if (dir) r += stepangle;
@@ -87,32 +82,38 @@ void enableInterrupt() {            //enable pin interrupt handler
 }
 
 //theta is the current position of the stepper, possibly with a phase offset to lead the stepper motion
-void output(float theta, int effort) {
-   int angle_1;
-   int angle_2;
-   int v_coil_A;
-   int v_coil_B;
+void output(float theta, int effort, int phaseShift) {
+  int angle_1;
+  int angle_2;
+  int v_coil_A;
+  int v_coil_B;
 
-   int sin_coil_A;
-   int sin_coil_B;
-   const float phase_multiplier = 10.0 * float(spr) / 4.0 * 360.0 / 2.0 / PI;
+  int sin_coil_A;
+  int sin_coil_B;
+  //convert from absolute angle to phase excitation angle, and from radians to fractions of a revolution (relative to the size of the sine table)
+  const float phase_multiplier = (float(spr) / 4.0) * (float(sineTableSize) / (2.0 * PI));
 
   //REG_PORT_OUTCLR0 = PORT_PA09; for debugging/timing
 
-  angle_1 = mod(directionSwap*int(phase_multiplier * theta), 3600);
-  angle_2 = mod(directionSwap*int(phase_multiplier * theta)+900, 3600);
+  int signEffort = (effort<0)?(-1):(1);
+  int calibrationTableOffset = (directionSwap>0)?0:sineTableSize/4;
+  int intAngle = int(phase_multiplier * theta) - (signEffort*phaseShift) + calibrationTableOffset;
+  effort = abs(effort);
+
+  angle_1 = mod(intAngle, sineTableSize);
+  angle_2 = mod(intAngle + (sineTableSize/4), sineTableSize);
   
   sin_coil_A  = sin_1[angle_1];
 
   sin_coil_B = sin_1[angle_2];
 
-  v_coil_A = ((effort * sin_coil_A) / 1024);
+  v_coil_A = ((directionSwap * effort * sin_coil_A) / 1024);
   v_coil_B = ((effort * sin_coil_B) / 1024);
 
      //For debugging:
-//   SerialUSB.print(sin_coil_A);
-//   SerialUSB.print(",");
-//   SerialUSB.println(sin_coil_B);
+//   SerialUSB.print(v_coil_A);
+//   SerialUSB.print(" , ");
+//   SerialUSB.println(v_coil_B);
 
   analogFastWrite(VREF_1, abs(v_coil_A));
   analogFastWrite(VREF_2, abs(v_coil_B));

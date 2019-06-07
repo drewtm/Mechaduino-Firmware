@@ -76,9 +76,11 @@ void calibrate() {   /// this is the calibration routine
   float lookupAngle = 0.0;
 
   SerialUSB.println("Beginning calibration.");
-  SerialUSB.println("The stepper will spin at a moderate speed to the encoder zero postion, then slowly one revolution forward and one backward.");
+  SerialUSB.println("The stepper will move a bit, then spin at a moderate speed to the encoder zero postion, then slowly one revolution forward and one backward to calibrate.");
+  SerialUSB.println();
   
   disableTCInterrupts();      //make sure to disable closed loop
+  fullStepReading[0] = readEncoder(); //discard an encoder read because the first reading after powerup is sometimes wrong
   
   //align rotor to current output phase in case this is the first thing after powerup
   dir = true;
@@ -91,10 +93,12 @@ void calibrate() {   /// this is the calibration routine
   oneStep();
   dir = true;
   delay(delaytime);
-
-  //make sure we're not going into this right at the rollover point of the encoder
-  if( ( (ENCODERCOUNTS-readEncoder()) < (ENCODERCOUNTS/spr*4) ) || (readEncoder() < (ENCODERCOUNTS/spr*4) ) ) {
-    SerialUSB.println("near rollover! moving away..");
+  
+  fullStepReading[0] = readEncoder(); //see where we're at
+  //make sure we're not going into this within 4 steps of the rollover point of the encoder
+  if( ( (ENCODERCOUNTS-fullStepReading[0]) < (ENCODERCOUNTS/spr*4) ) || (fullStepReading[0] < (ENCODERCOUNTS/spr*4) ) ) {
+    SerialUSB.println("near rollover! moving away to check encoder orientation...");
+    SerialUSB.println();
     for (int x=0; x<12; x++){
       oneStep();
       delay(delaytime/8);
@@ -106,13 +110,15 @@ void calibrate() {   /// this is the calibration routine
   delay(delaytime);
 
   if ((readEncoder() - fullStepReading[0]) < 0) {    //if encoder is counting backward for the dir=true case
-    SerialUSB.print("found that this position ");
-    SerialUSB.print(readEncoder());
-    SerialUSB.print(" is less than the old position ");
-    SerialUSB.println(fullStepReading[0]);
-    SerialUSB.println("switching the direction flag...");
+    SerialUSB.println("Switching direction. Motor was wired backward from the encoder direction. It's fine for now.");
+    SerialUSB.println();
+    SerialUSB.println("However, you need to manually change the sign of 'int directionSwap' in Parameters.cpp");
+    SerialUSB.println("    when you also copy over the calibration table, before you re-upload the firmware.");
+    SerialUSB.println("If you don't, the firmware will malfunction next time you power cycle.");
+    SerialUSB.println();
     directionSwap*=(-1);
-    return;
+    oneStep();
+    oneStep();
   }
 
   //quickly find the full step position that corresponds to the lowest encoder reading
@@ -121,7 +127,10 @@ void calibrate() {   /// this is the calibration routine
     oneStep();
     delay(delaytime/8);
   } while(readEncoder() > lastencoderReading);
-  
+  //if(directionSwap<0) oneStep(); //switching the commutation direction also changes the offset of the calibration table by one step
+
+  SerialUSB.println("  0         PI         2PI");
+  SerialUSB.print("   ");
   for (int x = 0; x < spr; x++) {     //step through all full step positions forward, recording their encoder readings
 
     fullStepReading[x] = 0;
@@ -135,7 +144,10 @@ void calibrate() {   /// this is the calibration routine
       delay(2);                                          //wait a little bit between readings
       lastencoderReading = currentencoderReading;
     }
-    if(!actuallyFlash){
+    if(actuallyFlash){
+      if(x%10==5) SerialUSB.print(">");
+    }
+    else{
       SerialUSB.print(x);
       SerialUSB.print(" , ");
       SerialUSB.println(fullStepReading[x]/(avg/2), DEC);
@@ -144,6 +156,8 @@ void calibrate() {   /// this is the calibration routine
   }
   delay(delaytime);
   SerialUSB.println();
+  SerialUSB.println("2PI         PI         0");
+  SerialUSB.print("   ");
   //scoot forward to get a full commutation cycle of backward motion hysteresis before taking readings
   for(int k = 1; k<=4; k++) {oneStep(); delay(delaytime);}
   //now run backward to just past the wraparound, to the step with the highest encoder count
@@ -169,12 +183,14 @@ void calibrate() {   /// this is the calibration routine
     else if (fullStepReading[x] < 0)
       fullStepReading[x] += ENCODERCOUNTS;
     
-    if(!actuallyFlash){
+    if(actuallyFlash){
+      if(x%10==5) SerialUSB.print(">");
+    }
+    else{
       SerialUSB.print(x);
       SerialUSB.print(" , ");
-      SerialUSB.println(fullStepReading[x], DEC);      //print readings as a sanity check
+      SerialUSB.println(fullStepReading[x], DEC);
     }
-    
     oneStep();
   }
 
@@ -197,6 +213,7 @@ void calibrate() {   /// this is the calibration routine
     //SerialUSB.print(fullStepReading[x]);
     //SerialUSB.print(", ");
   }
+  SerialUSB.println();
   SerialUSB.println();
   
   /*//sort the four phases from highest to lowest offset
@@ -343,42 +360,48 @@ void calibrationQuery() {         //print the lookup table
 void antiCoggingCal() {       //This is still under development...  The idea is that we can calibrate out the stepper motor's detent torque by measuring the torque required to hold all possible positions.
   SerialUSB.println(" -----------------BEGIN ANTICOGGING CALIBRATION!----------------");
   mode = 'x';
+  ITerm = 0;
   output(0,(int)(uMAX/2.0));  //snap the stepper to the nearest beginning of a commutation cycle
-  delay(1000);
+  delay(500);
   int startCnt = readEncoder();
   float startPos = lookup[startCnt];
   r = startPos;
-  float travel = 2.0*PI*4.0/spr;
-  float interval = travel/360.0;
+  int Npoints = 250;
+  float travel = aps*16.0;
+  float interval = travel/float(Npoints);
   enableTCInterrupts();
-  delay(1000);
+  delay(10000);
 
-  for (int i = 0; i < 360; i++) {
+  for (int i = 0; i < Npoints; i++) {
     int avg_ct = 10;
     float u_avg = 0.0;
+    float y_avg = 0.0;
     r = startPos+(float(i)*interval);
-    SerialUSB.print(r, DEC);
-    SerialUSB.print(" , ");
-    delay(90);
+    delay(20);
     for(int j=0; j<avg_ct; j++){
       u_avg += u;
+      y_avg += y;
       delay(1);
     }
+    SerialUSB.print(y_avg/avg_ct*10.0, DEC);
+    SerialUSB.print(" , ");
     SerialUSB.println(u_avg/avg_ct, DEC);
   }
   SerialUSB.println(" -----------------REVERSE!----------------");
 
-  for (int i = 360; i > 0; i--) {
+  for (int i = Npoints; i > 0; i--) {
     int avg_ct = 10;
     float u_avg = 0.0;
+    float y_avg = 0.0;
     r = startPos+(float(i)*interval);
-    SerialUSB.print(r, DEC);
-    SerialUSB.print(" , ");
-    delay(90);
+    delay(20);
     for(int j=0; j<avg_ct; j++){
       u_avg += u;
+      y_avg += y;
       delay(1);
     }
+    SerialUSB.print(y_avg/avg_ct*10.0, DEC);
+    SerialUSB.print(" , ");
     SerialUSB.println(u_avg/avg_ct, DEC);
   }
   SerialUSB.println(" -----------------DONE!----------------");
@@ -397,9 +420,8 @@ void sineGen() {
      delay(3000);
      SerialUSB.println("Printing sine look up table:...");
      SerialUSB.println("");
-  for (int x = 0; x <= 3600; x++) {
-    //temp = round(1024.0 * sin((3.14159265358979 * ((x * 0.1 / 180.0) + 0.25))));
-    temp = round(1024.0 * sin((3.14159265358979 * ((x * 0.1 / 180.0) + 0.0))));
+  for (int x = 0; x < sineTableSize; x++) {
+    temp = round(1024.0 * sin(2.0*PI*float(x)/float(sineTableSize)));
    SerialUSB.print(temp);
    SerialUSB.print(", ");  
   }

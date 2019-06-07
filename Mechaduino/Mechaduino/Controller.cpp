@@ -11,7 +11,8 @@ void TC5_Handler() {                                   // gets called with FPID 
   static int print_counter = 0;                        //this is used by step response
   int encoderRaw;
   static int oldEncoderRaw = -1;
-  bool stationary = false;
+  bool stationary = true;
+  int phaseSign = 1;
 
   if (TC5->COUNT16.INTFLAG.bit.OVF == 1) {    // A counter overflow caused the interrupt
      
@@ -59,6 +60,7 @@ void TC5_Handler() {                                   // gets called with FPID 
           else if (ITerm < -pAWi) ITerm = -pAWi;          
           //=== apply gains and calculate motor command
           u = pKp*e + pKd*de + pKi*ITerm;
+          u *= (-1.0);
           break;
             
         case 'v':         // velocity controller
@@ -83,6 +85,7 @@ void TC5_Handler() {                                   // gets called with FPID 
           else if (ITerm < -vAWi) ITerm = -vAWi;
           //=== apply gains
           u = vKp*e + vKd*de + vKi*ITerm;
+          u *= (-1.0);
           break;
           
         case 't':         // torque control
@@ -94,38 +97,44 @@ void TC5_Handler() {                                   // gets called with FPID 
           break;
       }
 
-      y_1 = y;  //copy current value of y to previous value (y_1) for next control cycle before PA angle added
+//      y_1 = y;  //copy current value of y to previous value (y_1) for next control cycle before PA angle added
+//
+//      //Depending on direction we want to apply torque, add or subtract a phase angle of PA for max effective torque.  PA should be equal to one full step angle: if the excitation angle is the same as the current position, we would not move!  
+//      if (u > 0){         //You can experiment with "Phase Advance" by increasing PA when operating at high speeds
+//        y -= PA;          //update phase excitation angle
+//        if (u > uMAX)     // limit control effort
+//          u = uMAX;       //saturation limits max current command
+//      }
+//      else{
+//        y += PA;          //update phase excitation angle
+//        if (u < -uMAX)    // limit control effort
+//          u = -uMAX;      //saturation limits max current command
+//      }
+//      
+//      U = abs(u);
 
-      //Depending on direction we want to apply torque, add or subtract a phase angle of PA for max effective torque.  PA should be equal to one full step angle: if the excitation angle is the same as the current position, we would not move!  
-      if (u > 0){         //You can experiment with "Phase Advance" by increasing PA when operating at high speeds
-        y += PA;          //update phase excitation angle
-        if (u > uMAX)     // limit control effort
-          u = uMAX;       //saturation limits max current command
-        }
-      else{
-        y -= PA;          //update phase excitation angle
-        if (u < -uMAX)    // limit control effort
-          u = -uMAX;      //saturation limits max current command
-      }
-      
-      U = abs(u);
+    if(u>uMAX) u = uMAX;          //constrain control signal to max allowable value
+    else if(u<-uMAX) u = -uMAX;   // "saturation" limit
       
       if (abs(e) < aps/2.0) ledPin_HIGH();    // turn on LED if error is less than 0.1
       else ledPin_LOW();                  //digitalWrite(ledPin, LOW);
       
-      output(y, round(U));    // update phase currents
+      output(y, round(u), PA);    // update phase currents
     }
     
+    y_1 = y;
     v_1 = v;      //copy current values to previous values for next control cycle
     e_2 = e_1;    //these past values can be useful for more complex controllers/filters.  Uncomment as necessary    
     e_1 = e;
     u_2 = u_1;
     u_1 = u;
     yw_1 = yw;
-    if (print_yw == true){       //for debugging
+    if (print_yw==true){       //for debugging
       print_counter += 1;  
       if (print_counter >= 100){    // print position every so often (every time is too much data for plotter and may slow down control loop
-        //SerialUSB.println(yw);    
+        //SerialUSB.print(y);
+        //SerialUSB.print(" , ");
+        //SerialUSB.println(round(u));
         print_counter = 0;
       }
     }
