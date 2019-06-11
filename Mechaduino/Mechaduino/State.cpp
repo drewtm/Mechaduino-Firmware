@@ -5,6 +5,7 @@
 volatile float y = 0.0;     // measured angle
 volatile float yw = 0.0;    // "wrapped" angle (not limited to 0-2PI)
 volatile float v = 0.0;     // estimated velocity  (velocity loop)
+volatile float dv = 0.0;    // estimated angular acceleration
 volatile float r = 0.0;     //setpoint
 volatile float e = 0.0;     // e = r-y (error)
 volatile float de = 0.0;    // derivative of error
@@ -35,4 +36,4 @@ int stepNumber = 0; // open loop step number (used by 's' and for cal routine)
 char mode;
 volatile bool dir = true;  
 
-bool print_yw = true;      //for step response, under development...
+bool print_yw = false;      //for step response, under development...

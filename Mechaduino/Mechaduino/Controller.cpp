@@ -14,6 +14,12 @@ void TC5_Handler() {                                   // gets called with FPID 
   bool stationary = true;
   int phaseSign = 1;
 
+  //for mass simulation
+  float inertia = 1.4;
+  float damping = 0.08;
+  static float virtualVel = 0.0;
+  float Ksim = 26.0;
+
   if (TC5->COUNT16.INTFLAG.bit.OVF == 1) {    // A counter overflow caused the interrupt
      
     TEST1_HIGH();  //digitalWrite(3, HIGH);       //Fast Write to Digital 3 for debugging
@@ -91,27 +97,27 @@ void TC5_Handler() {                                   // gets called with FPID 
         case 't':         // torque control
           u = tK * r ;
           break;
-          
+
+        case 's':         // simulation
+          //=== velocity, rad/sec. calculated in a different way at very slow speeds.
+          if(stationary) v = vLPF.filterIn((yw-oldSlow)*Fs/float(oldSlowCnt));
+          else if(oldSlowCnt!=0) { //if this is the first encoder count after a static period of time
+            v = vLPF.filterIn((yw-oldSlow)*Fs/float(oldSlowCnt));
+            oldSlow = yw;
+          }
+          else { //if the motor is moving fast enough to get encoder counts every loop
+            v = vLPF.filterIn((yw-yw_1)*Fs);
+            oldSlow = yw;
+          }
+          e = (v-virtualVel);               //difference between reality and simulation
+          virtualVel *= (1.0-damping*Ts);   //
+          virtualVel += (e/inertia)*Ts;     //virtual acceleration
+          u = -Ksim*e;                      //try to make the output follow the simulation
+          break;
         default:
           u = 0;
           break;
       }
-
-//      y_1 = y;  //copy current value of y to previous value (y_1) for next control cycle before PA angle added
-//
-//      //Depending on direction we want to apply torque, add or subtract a phase angle of PA for max effective torque.  PA should be equal to one full step angle: if the excitation angle is the same as the current position, we would not move!  
-//      if (u > 0){         //You can experiment with "Phase Advance" by increasing PA when operating at high speeds
-//        y -= PA;          //update phase excitation angle
-//        if (u > uMAX)     // limit control effort
-//          u = uMAX;       //saturation limits max current command
-//      }
-//      else{
-//        y += PA;          //update phase excitation angle
-//        if (u < -uMAX)    // limit control effort
-//          u = -uMAX;      //saturation limits max current command
-//      }
-//      
-//      U = abs(u);
 
     if(u>uMAX) u = uMAX;          //constrain control signal to max allowable value
     else if(u<-uMAX) u = -uMAX;   // "saturation" limit
@@ -132,9 +138,9 @@ void TC5_Handler() {                                   // gets called with FPID 
     if (print_yw==true){       //for debugging
       print_counter += 1;  
       if (print_counter >= 100){    // print position every so often (every time is too much data for plotter and may slow down control loop
-        //SerialUSB.print(y);
-        //SerialUSB.print(" , ");
-        //SerialUSB.println(round(u));
+        SerialUSB.print(virtualVel);
+        SerialUSB.print(" , ");
+        SerialUSB.println(u);
         print_counter = 0;
       }
     }

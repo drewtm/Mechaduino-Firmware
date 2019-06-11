@@ -359,6 +359,7 @@ void calibrationQuery() {         //print the lookup table
 
 void antiCoggingCal() {       //This is still under development...  The idea is that we can calibrate out the stepper motor's detent torque by measuring the torque required to hold all possible positions.
   SerialUSB.println(" -----------------BEGIN ANTICOGGING CALIBRATION!----------------");
+  SerialUSB.println();
   mode = 'x';
   ITerm = 0;
   output(0,(int)(uMAX/2.0));  //snap the stepper to the nearest beginning of a commutation cycle
@@ -366,10 +367,18 @@ void antiCoggingCal() {       //This is still under development...  The idea is 
   int startCnt = readEncoder();
   float startPos = lookup[startCnt];
   r = startPos;
-  int Npoints = 250;
-  float travel = aps*16.0;
+  int Npoints = 64;
+  float travel = aps*4.0;
   float interval = travel/float(Npoints);
+  float torque[Npoints];
+  float angle[Npoints];
+  float integral[Npoints];
+  
   enableTCInterrupts();
+  delay(2000);
+  r -= aps;
+  delay(2000);
+  r += aps;
   delay(10000);
 
   for (int i = 0; i < Npoints; i++) {
@@ -377,34 +386,71 @@ void antiCoggingCal() {       //This is still under development...  The idea is 
     float u_avg = 0.0;
     float y_avg = 0.0;
     r = startPos+(float(i)*interval);
-    delay(20);
+    delay(900);
+    integral[i] = ITerm;
     for(int j=0; j<avg_ct; j++){
       u_avg += u;
       y_avg += y;
-      delay(1);
+      delay(10);
     }
-    SerialUSB.print(y_avg/avg_ct*10.0, DEC);
+    torque[i] = u_avg;
+    angle[i] = y_avg;
+    SerialUSB.print(i);
+    SerialUSB.print(", ");
+//    SerialUSB.print(y_avg/avg_ct*10.0, DEC);
+//    SerialUSB.print(" , ");
+//    SerialUSB.println(u_avg/avg_ct, DEC);
+  }
+  SerialUSB.println();
+  SerialUSB.println();
+  for (int i = 0; i < Npoints; i++) {
+    SerialUSB.print(angle[i],DEC);
     SerialUSB.print(" , ");
-    SerialUSB.println(u_avg/avg_ct, DEC);
+    SerialUSB.print(torque[i]);
+    SerialUSB.print(" , ");
+    SerialUSB.println(integral[i],DEC);
   }
   SerialUSB.println(" -----------------REVERSE!----------------");
 
-  for (int i = Npoints; i > 0; i--) {
+  r += aps;
+  delay(2000);
+  r -= aps;
+  delay(10000);
+
+  for (int i = Npoints-1; i >= 0; i--) {
     int avg_ct = 10;
     float u_avg = 0.0;
     float y_avg = 0.0;
     r = startPos+(float(i)*interval);
-    delay(20);
+    delay(900);
+    integral[i] = ITerm;
     for(int j=0; j<avg_ct; j++){
       u_avg += u;
       y_avg += y;
-      delay(1);
+      delay(10);
     }
-    SerialUSB.print(y_avg/avg_ct*10.0, DEC);
-    SerialUSB.print(" , ");
-    SerialUSB.println(u_avg/avg_ct, DEC);
+    torque[i] = u_avg;
+    angle[i] = y_avg;
+//    torque[i] = (torque[i]+u_avg)/2.0;
+//    angle[i] = (angle[i]+y_avg)/2.0;
+    SerialUSB.print(i);
+    SerialUSB.print(", ");
+//    SerialUSB.print(y_avg/avg_ct*10.0, DEC);
+//    SerialUSB.print(" , ");
+//    SerialUSB.println(u_avg/avg_ct, DEC);
   }
+  SerialUSB.println();
+  SerialUSB.println();
   SerialUSB.println(" -----------------DONE!----------------");
+  SerialUSB.println();
+  
+  for (int i = 0; i < Npoints; i++) {
+    SerialUSB.print(angle[i],DEC);
+    SerialUSB.print(" , ");
+    SerialUSB.print(torque[i]);
+    SerialUSB.print(" , ");
+    SerialUSB.println(integral[i],DEC);
+  }
   disableTCInterrupts();
   output(0,0);
 }

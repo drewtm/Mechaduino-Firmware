@@ -8,6 +8,7 @@
 extern volatile float y;  // measured angle
 extern volatile float yw; // wrapped angle (can be many rotations)
 extern volatile float v;  // estimated velocity (velocity loop)
+extern volatile float dv; // estimated angular acceleration
 extern volatile float r;  // setpoint
 extern volatile float e;  // e = yw-r (error)
 extern volatile float de; // derivative of error

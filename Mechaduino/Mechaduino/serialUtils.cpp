@@ -92,6 +92,11 @@ void serialCheck() {        //Monitors serial for commands.  Must be called in r
         ITerm = 0;
         break;
 
+      case 'S':
+        mode = 's';
+        ITerm = 0;
+        break;
+        
       case 'q':
         parameterQuery();     // prints copy-able parameters
         break;
@@ -115,8 +120,7 @@ void serialCheck() {        //Monitors serial for commands.  Must be called in r
       case 'j':
         stepResponse();
         break;
-
-
+        
       default:
         break;
     }

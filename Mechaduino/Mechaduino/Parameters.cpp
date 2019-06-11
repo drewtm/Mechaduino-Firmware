@@ -6,22 +6,22 @@
 
 //----Current Parameters-----
 
-volatile float Fs = 1000.0;     //Sample frequency in Hz
+volatile float Fs = 2000.0;     //Sample frequency in Hz
 volatile float Ts = 1.0/Fs;
 IIR::ORDER  LPForder  = IIR::ORDER::OD2; // Order of low pass filters for velocity (OD1 to OD4)
 
 //position mode PID values.  Depending on your motor/load/desired performance, you will need to tune these values.
-volatile float pKp = 40.0;      //proportional gain
-volatile float pKi = 0.0;      //integral gain
-volatile float pKd = 0.0;      //1000.0;
-volatile float pcut = 200.0;    //velocity low pass filter break frequency in Hz
-volatile float pAWi = 40.0;    //integral anti-windup limit, in rad*s
+volatile float pKp = 2000.0;  //proportional gain
+volatile float pKi = 5000.0;  //integral gain
+volatile float pKd = 0.0;     //1000.0;
+volatile float pcut = 200.0;  //velocity low pass filter break frequency in Hz
+volatile float pAWi = 1.0;    //integral anti-windup limit, in rad*s
 
 //velocity mode PID values.  Depending on your motor/load/desired performance, you will need to tune these values.
-volatile float vKp = 10.0;      //proportional gain
-volatile float vKi = 10.0;      //integral gain
+volatile float vKp = 10.0;     //proportional gain
+volatile float vKi = 10.0;     //integral gain
 volatile float vKd = 0.0;      //derivative gain
-volatile float vcut = 200.0;    //acceleration low pass filter break frequency in Hz
+volatile float vcut = 100.0;   //acceleration low pass filter break frequency in Hz
 volatile float vAWi = 40.0;    //integral anti-windup limit in rad/s*s
 
 //torque mode proportionality constant
