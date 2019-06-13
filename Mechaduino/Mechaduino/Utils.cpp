@@ -9,6 +9,7 @@
 #include "State.h"
 #include "analogFastWrite.h"
 #include "calibrations.h"
+#include "math.h"
 
 void setupPins() {
 
@@ -107,8 +108,9 @@ void output(float theta, int effort, int phaseShift) {
 
   sin_coil_B = sin_1[angle_2];
 
-  v_coil_A = ((directionSwap * effort * sin_coil_A) / 1024);
+  v_coil_A = ((directionSwap * effort * sin_coil_A) / 1024);  //1024 is a hard-coded multiplier in the sine table so that it can be integer-based
   v_coil_B = ((effort * sin_coil_B) / 1024);
+  v_coil_B = v_coil_B * phaseB_scaler / 1024;
 
      //For debugging:
 //   SerialUSB.print(v_coil_A);
@@ -282,6 +284,10 @@ void receiveEvent(int howMany)
 int mod(int xMod, int mMod) {
   return (xMod % mMod + mMod) % mMod;
 }
+
+//float mod(float xMod, float mMod) {
+//  return fmod(fmod(xMod, mMod) + mMod , mMod);
+//}
 
 
 void setupTCInterrupts() {  // configure the controller interrupt

@@ -43,9 +43,9 @@ const float stepangle = aps/32.0;    // for step/dir interrupt: aps/32 is the eq
 volatile int PA = sineTableSize/4;   // commutation phase advance relative to the sine table for closed loop control. 1/4 of the sine table is PI/2.0 or 90deg 
 
 const float iMAX = 1.0;             // Be careful adjusting this.  While the A4954 driver is rated for 2.0 Amp peak currents, it cannot handle these currents continuously.  Depending on how you operate the Mechaduino, you may be able to safely raise this value...please refer to the A4954 datasheet for more info
-const float rSense = 0.150;
-float rSenseOffset = 0.0;           // Adjusted while measuring fullstep calibration positions
-volatile int uMAX = (255/3.3)*(iMAX*10*rSense);   // 255 for 8-bit pwm, 1023 for 10 bit, must also edit analogFastWrite
+const float rSense = 0.150;         // nominal current sense resistor value, ohms
+int phaseB_scaler = 1024;           // phaseB_scaler/1024 scales the strength of phase B to match with phase A. Adjusted in phase calibration, used in output function
+volatile int uMAX = int((255.0/3.3)*(iMAX*10.0*rSense));   // 255 for 8-bit pwm, 1023 for 10 bit, must also edit analogFastWrite
 
 int directionSwap = -1;
 

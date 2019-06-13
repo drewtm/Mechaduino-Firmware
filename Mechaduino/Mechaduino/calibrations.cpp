@@ -294,18 +294,24 @@ void calibrate() {   /// this is the calibration routine
 
       if (i == iStart) { //this is an edge case
         for (int j = jStart; j < ticks; j++) {
-          if(actuallyFlash) store_lookup(mod(10000.0 * ((aps * i) + ((aps * j ) / float(ticks))), round(2.0*PI*10000.0))/10000.0);
+          float dividend = 10000.0 * ((aps * float(i)) + ((aps * float(j)) / float(ticks)));
+          float divisor = 10000.0 * 2.0*PI;
+          if(actuallyFlash) store_lookup(mod(round(dividend), round(divisor))/10000.0);
         }
       }
 
       else if (i == (iStart + spr)) { //this is an edge case
         for (int j = 0; j < jStart; j++) {
-          if(actuallyFlash) store_lookup(mod(10000 * ((aps * i) + ((aps * j ) / float(ticks))), round(2.0*PI*10000.0))/10000.0);
+          float dividend = 10000.0 * ((aps * float(i)) + ((aps * float(j)) / float(ticks)));
+          float divisor = 10000.0 * 2.0*PI;
+          if(actuallyFlash) store_lookup(mod(round(dividend), round(divisor))/10000.0);
         }
       }
       else {                        //this is the general case
         for (int j = 0; j < ticks; j++) {
-          if(actuallyFlash) store_lookup(mod(10000 * ((aps * i) + ((aps * j ) / float(ticks))), round(2.0*PI*10000.0))/10000.0);
+          float dividend = 10000.0 * ((aps * float(i)) + ((aps * float(j)) / float(ticks)));
+          float divisor = 10000.0 * 2.0*PI;
+          if(actuallyFlash) store_lookup(mod(round(dividend), round(divisor))/10000.0);
         }
       }
     }
@@ -313,17 +319,23 @@ void calibrate() {   /// this is the calibration routine
     else if (ticks < 1) {             //similar to above... for case when encoder counts were decreasing during cal routine
       if (i == iStart) {
         for (int j = - ticks; j > (jStart); j--) {
-          if(actuallyFlash) store_lookup(mod(10000.0 * (aps * (i) + (aps * ((ticks + j)) / float(ticks))), round(2.0*PI*10000.0))/10000.0);
+          float dividend = 10000.0 * ((aps * float(i)) + (aps * ((ticks + float(j))) / float(ticks)));
+          float divisor = 10000.0 * 2.0*PI;
+          if(actuallyFlash) store_lookup(mod(round(dividend), round(divisor))/10000.0);
         }
       }
       else if (i == iStart + spr) {
         for (int j = jStart; j > 0; j--) {
-          if(actuallyFlash) store_lookup(mod(10000.0 * (aps * (i) + (aps * ((ticks + j)) / float(ticks))), round(2.0*PI*10000.0))/10000.0);
+          float dividend = 10000.0 * ((aps * float(i)) + (aps * ((ticks + float(j))) / float(ticks)));
+          float divisor = 10000.0 * 2.0*PI;
+          if(actuallyFlash) store_lookup(mod(round(dividend), round(divisor))/10000.0);
         }
       }
       else {
         for (int j = - ticks; j > 0; j--) {
-          if(actuallyFlash) store_lookup(mod(int(10000.0 * (aps * (i) + (aps * ((ticks + j)) / float(ticks)))), round(2.0*PI*10000.0))/10000.0);
+          float dividend = 10000.0 * ((aps * float(i)) + (aps * ((ticks + float(j))) / float(ticks)));
+          float divisor = 10000.0 * 2.0*PI;
+          if(actuallyFlash) store_lookup(mod(round(dividend), round(divisor))/10000.0);
         }
       }
 
@@ -356,23 +368,132 @@ void calibrationQuery() {         //print the lookup table
   SerialUSB.println("};");
 }
 
+float phaseCompare(int ms) {
+  int avg=10;
+  //energize both phases fully (A first to bias snapping directon) and read the rotor angle
+  IN_3_HIGH();
+  IN_4_LOW();
+  analogFastWrite(VREF_2, uMAX*3/4);
+  delay(10);
+  IN_1_HIGH();
+  IN_2_LOW();
+  analogFastWrite(VREF_1, uMAX*3/4);
+  delay(ms);
+  float centered_pos = lookup[readEncoder()];
+  for (int i=1; i<avg; i++) {centered_pos += lookup[readEncoder()]; delay(1);}
+  centered_pos /= float(avg);
+  SerialUSB.println();
+  SerialUSB.print("      centered positive: ");
+  SerialUSB.print(centered_pos, DEC);
+  
+  //back off coil A and find the change in angle. bigger change = A stronger
+  analogFastWrite(VREF_1, uMAX*1/8);
+  delay(ms);
+  float Areduced_pos = centered_pos - lookup[readEncoder()];
+  for (int i=1; i<avg; i++) {Areduced_pos += (centered_pos - lookup[readEncoder()]); delay(1);}
+  Areduced_pos /= float(avg);
+  SerialUSB.print(",  ");
+  SerialUSB.print(Areduced_pos, DEC);
+  
+  //recenter
+  analogFastWrite(VREF_1, uMAX*3/4);
+  delay(ms);
+
+  //back off coil B and find the change in angle. bigger change = B stronger
+  analogFastWrite(VREF_2, uMAX*1/8);
+  delay(ms);
+  float Breduced_pos = centered_pos - lookup[readEncoder()];
+  for (int i=1; i<avg; i++) {Breduced_pos += (centered_pos - lookup[readEncoder()]); delay(1);}
+  Breduced_pos /= float(avg);
+  SerialUSB.print(",  ");
+  SerialUSB.println(Breduced_pos, DEC);
+
+  //recenter
+  analogFastWrite(VREF_2, uMAX*3/4);
+  delay(ms);
+  
+  //reverse coil A and then coil B to move in a predictable direction, and read the angle again
+  IN_4_HIGH();
+  IN_3_LOW();
+  delay(10);
+  IN_2_HIGH();
+  IN_1_LOW();
+  delay(ms);
+  float centered_neg = lookup[readEncoder()];
+  for (int i=1; i<avg; i++) {centered_neg += lookup[readEncoder()]; delay(1);}
+  centered_neg /= float(avg);
+  SerialUSB.print("      centered negative: ");
+  SerialUSB.print(centered_neg, DEC);
+  
+  //back off coil A and find the change in angle. bigger change = A stronger
+  analogFastWrite(VREF_1, uMAX*1/8);
+  delay(ms);
+  float Areduced_neg = centered_neg - lookup[readEncoder()];
+  for (int i=1; i<avg; i++) {Areduced_neg += (centered_pos - lookup[readEncoder()]); delay(1);}
+  Areduced_neg/= float(avg);
+  SerialUSB.print(",  ");
+  SerialUSB.print(Areduced_neg, DEC);
+  
+  //recenter
+  analogFastWrite(VREF_1, uMAX*3/4);
+  delay(ms);
+
+  //back off coil B and find the change in angle. bigger change = B stronger
+  analogFastWrite(VREF_2, uMAX*1/8);
+  delay(ms);
+  float Breduced_neg = centered_neg - lookup[readEncoder()];
+  for (int i=1; i<avg; i++) {Breduced_neg += (centered_pos - lookup[readEncoder()]); delay(1);}
+  Breduced_neg /= float(avg);
+  SerialUSB.print(",  ");
+  SerialUSB.println(Breduced_neg, DEC);
+  
+  //recenter
+  analogFastWrite(VREF_2, uMAX*3/4);
+  delay(ms);
+
+  float positiveBoverA = -Areduced_pos/Breduced_pos;
+  float negativeBoverA = -Areduced_neg/Breduced_neg;
+  SerialUSB.println(positiveBoverA);
+  SerialUSB.println(negativeBoverA);
+  
+  return( (positiveBoverA+negativeBoverA)/2.0);
+}
 
 void antiCoggingCal() {       //This is still under development...  The idea is that we can calibrate out the stepper motor's detent torque by measuring the torque required to hold all possible positions.
-  SerialUSB.println(" -----------------BEGIN ANTICOGGING CALIBRATION!----------------");
+  mode = 'x';
+  ITerm = 0;
+  r = lookup[readEncoder()];
+  output(0,(int)(uMAX));  //snap the stepper to the nearest beginning of a commutation cycle
+  delay(500);
+  float startPos = lookup[readEncoder()];
+  output(0,(int)(uMAX/2.0));  //back off the current a little bit
+  int microsteps = 16;
+  float feedforward[microsteps*4];
+  
+  for (int i=0; i<microsteps; i++){
+    r += 2.0*PI/float(microsteps);
+    float commutationAngle = round(mod(r, aps*4.0));
+    delay(10);
+    if(i==0) feedforward[i] = u;
+    else feedforward[i] += u;
+  }
+}
+
+/*
+void antiCoggingCal() {       //This is still under development...  The idea is that we can calibrate out the stepper motor's detent torque by measuring the torque required to hold all possible positions.
+  SerialUSB.println(" ---------------- BEGIN ANTICOGGING CALIBRATION! ---------------");
   SerialUSB.println();
   mode = 'x';
   ITerm = 0;
-  output(0,(int)(uMAX/2.0));  //snap the stepper to the nearest beginning of a commutation cycle
+  r = lookup[readEncoder()];
+  output(0,(int)(uMAX));  //snap the stepper to the nearest beginning of a commutation cycle
   delay(500);
-  int startCnt = readEncoder();
-  float startPos = lookup[startCnt];
+  float startPos = lookup[readEncoder()];
+  output(0,(int)(uMAX/2.0));  //back off the current a little bit
   r = startPos;
   int Npoints = 64;
   float travel = aps*4.0;
   float interval = travel/float(Npoints);
-  float torque[Npoints];
-  float angle[Npoints];
-  float integral[Npoints];
   
   enableTCInterrupts();
   delay(2000);
@@ -380,81 +501,76 @@ void antiCoggingCal() {       //This is still under development...  The idea is 
   delay(2000);
   r += aps;
   delay(10000);
-
-  for (int i = 0; i < Npoints; i++) {
-    int avg_ct = 10;
-    float u_avg = 0.0;
-    float y_avg = 0.0;
-    r = startPos+(float(i)*interval);
-    delay(900);
-    integral[i] = ITerm;
-    for(int j=0; j<avg_ct; j++){
-      u_avg += u;
-      y_avg += y;
-      delay(10);
-    }
-    torque[i] = u_avg;
-    angle[i] = y_avg;
-    SerialUSB.print(i);
-    SerialUSB.print(", ");
-//    SerialUSB.print(y_avg/avg_ct*10.0, DEC);
-//    SerialUSB.print(" , ");
-//    SerialUSB.println(u_avg/avg_ct, DEC);
-  }
-  SerialUSB.println();
-  SerialUSB.println();
-  for (int i = 0; i < Npoints; i++) {
-    SerialUSB.print(angle[i],DEC);
-    SerialUSB.print(" , ");
-    SerialUSB.print(torque[i]);
-    SerialUSB.print(" , ");
-    SerialUSB.println(integral[i],DEC);
-  }
-  SerialUSB.println(" -----------------REVERSE!----------------");
-
+  
+  SerialUSB.println(" ------------------ Clockwise Load, Unwinding ------------------");
+  
+  torqueCycle(Npoints, r, interval);
   r += aps;
-  delay(2000);
-  r -= aps;
-  delay(10000);
-
-  for (int i = Npoints-1; i >= 0; i--) {
-    int avg_ct = 10;
-    float u_avg = 0.0;
-    float y_avg = 0.0;
-    r = startPos+(float(i)*interval);
-    delay(900);
-    integral[i] = ITerm;
-    for(int j=0; j<avg_ct; j++){
-      u_avg += u;
-      y_avg += y;
-      delay(10);
-    }
-    torque[i] = u_avg;
-    angle[i] = y_avg;
-//    torque[i] = (torque[i]+u_avg)/2.0;
-//    angle[i] = (angle[i]+y_avg)/2.0;
-    SerialUSB.print(i);
-    SerialUSB.print(", ");
-//    SerialUSB.print(y_avg/avg_ct*10.0, DEC);
-//    SerialUSB.print(" , ");
-//    SerialUSB.println(u_avg/avg_ct, DEC);
-  }
-  SerialUSB.println();
-  SerialUSB.println();
-  SerialUSB.println(" -----------------DONE!----------------");
+  delay(500);
   SerialUSB.println();
   
+  SerialUSB.println(" ------------------- Clockwise Load, Winding -------------------");
+  r -= aps;
+  delay(10000);
+  torqueCycle(Npoints, r, -interval);
+  
+  SerialUSB.println(" ---------------- Counterclockwise Load, Winding ---------------");
+  SerialUSB.println();
+  SerialUSB.print(y);
+  for(int i=0; i<spr*2; i++){
+    r += aps/2.0;
+    SerialUSB.print(" ");
+    SerialUSB.print(y);
+    delay(4);
+  }
+  SerialUSB.println();
+  SerialUSB.println();
+  torqueCycle(Npoints, r, interval);
+  r += aps;
+  delay(500);
+  
+  SerialUSB.println(" --------------- Counterclockwise Load, Unwinding --------------");
+  r -= aps;
+  delay(10000);
+  torqueCycle(Npoints, r, -interval);
+  
+  disableTCInterrupts();
+  output(0,0);
+}*/
+
+void torqueCycle(int Npoints, float startPos, float interval){
+  float torque[Npoints];
+  float angle[Npoints];
+
+  SerialUSB.print("counting to ");
+  SerialUSB.print(Npoints-1);
+  SerialUSB.print(": ");
+  
+  for (int i = 0; i < Npoints; i++) {
+    int avg_ct = 10;
+    float u_avg = 0.0;
+    float y_avg = 0.0;
+    r = startPos+(float(i)*interval);
+    delay(900);
+    for(int j=0; j<avg_ct; j++){
+      u_avg += u;
+      y_avg += y;
+      delay(10);
+    }
+    torque[i] = u_avg/avg_ct;
+    angle[i] = y_avg/avg_ct;
+    SerialUSB.print(i);
+    SerialUSB.print(", ");
+  }
+  
+  SerialUSB.println();
+  SerialUSB.println();
   for (int i = 0; i < Npoints; i++) {
     SerialUSB.print(angle[i],DEC);
     SerialUSB.print(" , ");
-    SerialUSB.print(torque[i]);
-    SerialUSB.print(" , ");
-    SerialUSB.println(integral[i],DEC);
+    SerialUSB.println(torque[i]);
   }
-  disableTCInterrupts();
-  output(0,0);
 }
-
 
 void sineGen() {
   int temp;

@@ -28,6 +28,8 @@
 	void receiveEvent(int howMany);   //for i2c interface...
 	
 	int mod(int xMod, int mMod);      //modulo, handles negative values properly
+
+//  float mod(float xMod, float mMod);  //floating point modulo with negative values
 	
 	void setupTCInterrupts();         //configures control loop interrupt
 	

@@ -41,6 +41,7 @@ extern volatile int PA;
 
 extern const float iMAX;
 extern const float rSense;
+extern int phaseB_scaler;
 extern volatile int uMAX;
 
 extern int directionSwap;

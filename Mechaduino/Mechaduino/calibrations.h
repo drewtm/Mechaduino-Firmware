@@ -9,7 +9,13 @@
   
   void calibrationQuery();          //print out the calibration table
 
+  float phaseCompare(int ms);
+
+//  void phaseBalance();
+
   void antiCoggingCal();            //under development...
+
+  void torqueCycle(int Npoints, float startPos, float interval);
 
   void sineGen();                   //generates sinusoidal commutation table. you can experiment with other commutation profiles
 

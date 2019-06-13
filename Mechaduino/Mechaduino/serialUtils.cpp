@@ -43,6 +43,10 @@ void serialCheck() {        //Monitors serial for commands.  Must be called in r
         calibrationQuery();
         break;
 
+      case 'b':
+        SerialUSB.println(phaseCompare(200));
+        break;
+
       case 'e':
         readEncoderDiagnostics();   //encoder error?
         break;
@@ -463,6 +467,7 @@ void serialMenu() {
   SerialUSB.println("");
   SerialUSB.println(" c  -  generate new calibration table");
   SerialUSB.println(" C  -  print out calibration table");
+  SerialUSB.println(" b  -  run phase balance routine");
   SerialUSB.println(" e  -  check encoder diagnositics");
   SerialUSB.println(" q  -  parameter query");
   SerialUSB.println("");
