@@ -369,174 +369,114 @@ void calibrationQuery() {         //print the lookup table
 }
 
 float phaseCompare(int ms) {
-  int avg=10;
-  //energize both phases fully (A first to bias snapping directon) and read the rotor angle
+  int temparray[100];
+  //delay(8000);
+  
+  analogFastWrite(VREF_1, 0);
   IN_3_HIGH();
   IN_4_LOW();
-  analogFastWrite(VREF_2, uMAX*3/4);
-  delay(10);
+  analogFastWrite(VREF_2, uMAX);
+  delay(100);
+  analogFastWrite(VREF_2, 0);
+  delay(500);
+  
+  //initiate step input toward A+
   IN_1_HIGH();
   IN_2_LOW();
-  analogFastWrite(VREF_1, uMAX*3/4);
-  delay(ms);
-  float centered_pos = lookup[readEncoder()];
-  for (int i=1; i<avg; i++) {centered_pos += lookup[readEncoder()]; delay(1);}
-  centered_pos /= float(avg);
-  SerialUSB.println();
-  SerialUSB.print("      centered positive: ");
-  SerialUSB.print(centered_pos, DEC);
+  analogFastWrite(VREF_1, uMAX/4);
   
-  //back off coil A and find the change in angle. bigger change = A stronger
-  analogFastWrite(VREF_1, uMAX*1/8);
-  delay(ms);
-  float Areduced_pos = centered_pos - lookup[readEncoder()];
-  for (int i=1; i<avg; i++) {Areduced_pos += (centered_pos - lookup[readEncoder()]); delay(1);}
-  Areduced_pos /= float(avg);
-  SerialUSB.print(",  ");
-  SerialUSB.print(Areduced_pos, DEC);
-  
-  //recenter
-  analogFastWrite(VREF_1, uMAX*3/4);
-  delay(ms);
-
-  //back off coil B and find the change in angle. bigger change = B stronger
-  analogFastWrite(VREF_2, uMAX*1/8);
-  delay(ms);
-  float Breduced_pos = centered_pos - lookup[readEncoder()];
-  for (int i=1; i<avg; i++) {Breduced_pos += (centered_pos - lookup[readEncoder()]); delay(1);}
-  Breduced_pos /= float(avg);
-  SerialUSB.print(",  ");
-  SerialUSB.println(Breduced_pos, DEC);
-
-  //recenter
-  analogFastWrite(VREF_2, uMAX*3/4);
-  delay(ms);
-  
-  //reverse coil A and then coil B to move in a predictable direction, and read the angle again
-  IN_4_HIGH();
-  IN_3_LOW();
-  delay(10);
-  IN_2_HIGH();
-  IN_1_LOW();
-  delay(ms);
-  float centered_neg = lookup[readEncoder()];
-  for (int i=1; i<avg; i++) {centered_neg += lookup[readEncoder()]; delay(1);}
-  centered_neg /= float(avg);
-  SerialUSB.print("      centered negative: ");
-  SerialUSB.print(centered_neg, DEC);
-  
-  //back off coil A and find the change in angle. bigger change = A stronger
-  analogFastWrite(VREF_1, uMAX*1/8);
-  delay(ms);
-  float Areduced_neg = centered_neg - lookup[readEncoder()];
-  for (int i=1; i<avg; i++) {Areduced_neg += (centered_pos - lookup[readEncoder()]); delay(1);}
-  Areduced_neg/= float(avg);
-  SerialUSB.print(",  ");
-  SerialUSB.print(Areduced_neg, DEC);
-  
-  //recenter
-  analogFastWrite(VREF_1, uMAX*3/4);
-  delay(ms);
-
-  //back off coil B and find the change in angle. bigger change = B stronger
-  analogFastWrite(VREF_2, uMAX*1/8);
-  delay(ms);
-  float Breduced_neg = centered_neg - lookup[readEncoder()];
-  for (int i=1; i<avg; i++) {Breduced_neg += (centered_pos - lookup[readEncoder()]); delay(1);}
-  Breduced_neg /= float(avg);
-  SerialUSB.print(",  ");
-  SerialUSB.println(Breduced_neg, DEC);
-  
-  //recenter
-  analogFastWrite(VREF_2, uMAX*3/4);
-  delay(ms);
-
-  float positiveBoverA = -Areduced_pos/Breduced_pos;
-  float negativeBoverA = -Areduced_neg/Breduced_neg;
-  SerialUSB.println(positiveBoverA);
-  SerialUSB.println(negativeBoverA);
-  
-  return( (positiveBoverA+negativeBoverA)/2.0);
-}
-
-void antiCoggingCal() {       //This is still under development...  The idea is that we can calibrate out the stepper motor's detent torque by measuring the torque required to hold all possible positions.
-  mode = 'x';
-  ITerm = 0;
-  r = lookup[readEncoder()];
-  output(0,(int)(uMAX));  //snap the stepper to the nearest beginning of a commutation cycle
-  delay(500);
-  float startPos = lookup[readEncoder()];
-  output(0,(int)(uMAX/2.0));  //back off the current a little bit
-  int microsteps = 16;
-  float feedforward[microsteps*4];
-  
-  for (int i=0; i<microsteps; i++){
-    r += 2.0*PI/float(microsteps);
-    float commutationAngle = round(mod(r, aps*4.0));
-    delay(10);
-    if(i==0) feedforward[i] = u;
-    else feedforward[i] += u;
+  //take 100 samples
+  for(int i=0; i<100; i++){
+    temparray[i] = readEncoder();
+    while(micros()%10 != 0);
+    while(micros()%10 == 0);
   }
+
+  //turn off A
+  analogFastWrite(VREF_1, 0);
+
+  //print stuff
+  for(int i=0; i<100; i++) {
+    SerialUSB.println(temparray[i]);
+    delay(1);
+  }
+  
+  return(0.0);
 }
 
-/*
-void antiCoggingCal() {       //This is still under development...  The idea is that we can calibrate out the stepper motor's detent torque by measuring the torque required to hold all possible positions.
-  SerialUSB.println(" ---------------- BEGIN ANTICOGGING CALIBRATION! ---------------");
-  SerialUSB.println();
+void antiCoggingCal() {
+  SerialUSB.println("  Beginning cogging torque measurement. This will take a while. It goes one full rotation forward and one backward.");
   mode = 'x';
   ITerm = 0;
   r = lookup[readEncoder()];
+  
   output(0,(int)(uMAX));  //snap the stepper to the nearest beginning of a commutation cycle
   delay(500);
-  float startPos = lookup[readEncoder()];
-  output(0,(int)(uMAX/2.0));  //back off the current a little bit
-  r = startPos;
-  int Npoints = 64;
-  float travel = aps*4.0;
-  float interval = travel/float(Npoints);
-  
+  r = lookup[readEncoder()];
   enableTCInterrupts();
-  delay(2000);
-  r -= aps;
-  delay(2000);
-  r += aps;
-  delay(10000);
-  
-  SerialUSB.println(" ------------------ Clockwise Load, Unwinding ------------------");
-  
-  torqueCycle(Npoints, r, interval);
-  r += aps;
-  delay(500);
+  SerialUSB.println("   -stabilizing");
+  delay(5000);
+  float cogEffort[cogTableSize];
+  int commCycles = spr/4;
+  int smoothing = 20;
   SerialUSB.println();
+  SerialUSB.print(" 1");
+  for(int i=0; i<commCycles*4; i++) SerialUSB.print("_");
+  SerialUSB.println(commCycles);
+  SerialUSB.print("  ");
   
-  SerialUSB.println(" ------------------- Clockwise Load, Winding -------------------");
-  r -= aps;
-  delay(10000);
-  torqueCycle(Npoints, r, -interval);
+  for (int i=0; i<(commCycles); i++){
+    for (int j=0; j<(cogTableSize); j++){
+      r += 4.0*aps/float(cogTableSize);
+      delay(10);
+      float tempU = 0.0;
+      for(int k=0; k<smoothing; k++){
+        tempU += u;
+        delay(1);
+      }
+      tempU = tempU/smoothing;
+      if(i==0) cogEffort[j] = tempU;  //initial case
+      else cogEffort[j] += tempU;     //summing across all commutation cycles
+      if(j==0 || j==cogTableSize/2) SerialUSB.print("~");
+      else if (j==cogTableSize/4) SerialUSB.print("\"");
+      else if (j==cogTableSize*3/4) SerialUSB.print("_");
+    }
+  }
   
-  SerialUSB.println(" ---------------- Counterclockwise Load, Winding ---------------");
   SerialUSB.println();
-  SerialUSB.print(y);
-  for(int i=0; i<spr*2; i++){
-    r += aps/2.0;
-    SerialUSB.print(" ");
-    SerialUSB.print(y);
-    delay(4);
+  SerialUSB.println();
+  SerialUSB.print(commCycles);
+  for(int i=0; i<commCycles*4; i++) SerialUSB.print("_");
+  SerialUSB.println("1");
+  SerialUSB.print("  ");
+  for (int i=0; i<(commCycles); i++){
+    for (int j=0; j<(cogTableSize); j++){
+      r -= 4.0*aps/float(cogTableSize);
+      delay(10);
+      float tempU = 0.0;
+      for(int k=0; k<smoothing; k++){
+        tempU += u;
+        delay(1);
+      }
+      tempU = tempU/smoothing;
+      cogEffort[j] -= tempU;     //summing across all commutation cycles
+      if(j==0 || j==cogTableSize/2) SerialUSB.print("~");
+      else if (j==cogTableSize/4) SerialUSB.print("_");
+      else if (j==cogTableSize*3/4) SerialUSB.print("\"");
+    }
   }
   SerialUSB.println();
   SerialUSB.println();
-  torqueCycle(Npoints, r, interval);
-  r += aps;
-  delay(500);
-  
-  SerialUSB.println(" --------------- Counterclockwise Load, Unwinding --------------");
-  r -= aps;
-  delay(10000);
-  torqueCycle(Npoints, r, -interval);
-  
+  for (int j=0; j<(cogTableSize); j++){
+    cogTable[j] = round(cogEffort[j]/float(commCycles*2)); //calculate average
+    if(j>0) SerialUSB.print(", ");
+    SerialUSB.print(cogTable[j]);
+  }
+  SerialUSB.println();
+  SerialUSB.println();
   disableTCInterrupts();
   output(0,0);
-}*/
+}
 
 void torqueCycle(int Npoints, float startPos, float interval){
   float torque[Npoints];

@@ -83,26 +83,72 @@ void enableInterrupt() {            //enable pin interrupt handler
 }
 
 //theta is the current position of the stepper, possibly with a phase offset to lead the stepper motion
+//theta is a float, units in radians
+//effort is an integer value with units of millivolts (centivolts?) but the voltage reference gets mapped to a current
+//phaseShift is an integer offset within the sine table, and makes the most sense if it's always positive
 void output(float theta, int effort, int phaseShift) {
+  static int outputdivider = 0;
   int angle_1;
   int angle_2;
   int v_coil_A;
   int v_coil_B;
-
   int sin_coil_A;
   int sin_coil_B;
   //convert from absolute angle to phase excitation angle, and from radians to fractions of a revolution (relative to the size of the sine table)
   const float phase_multiplier = (float(spr) / 4.0) * (float(sineTableSize) / (2.0 * PI));
 
+  bool hysteresisMode = (abs(effort)<hysteresis);
+
+//  if (outputdivider==101){
+//    SerialUSB.print(phaseShift);
+//    SerialUSB.print(", ");
+//    SerialUSB.println(effort);
+//    outputdivider=0;
+//  }
+//  outputdivider++;
+
   //REG_PORT_OUTCLR0 = PORT_PA09; for debugging/timing
 
-  int signEffort = (effort<0)?(-1):(1);
-  int calibrationTableOffset = (directionSwap>0)?0:sineTableSize/4;
+  int signEffort = (effort<0) ? (-1) : (1);
+  int calibrationTableOffset = (directionSwap>0) ? (0) : (sineTableSize/4);
   int intAngle = int(phase_multiplier * theta) - (signEffort*phaseShift) + calibrationTableOffset;
-  effort = abs(effort);
+  
+  angle_1 = mod(intAngle, sineTableSize); 
 
-  angle_1 = mod(intAngle, sineTableSize);
+  //anti-cogging is only done in continuous-phase control mode, not in discrete step mode
+  if(phaseShift != 0){
+    int cogAngle = angle_1/cogTableSizeDivider;
+    int cogEffort = signEffort*cogTable[cogAngle];
+    effort += signEffort*cogEffort;
+    hysteresisMode = (abs(effort)<hysteresis);
+    if(hysteresisMode==true){
+      intAngle += signEffort*phaseShift; //undo this part of the angle calculation
+      int signedHysteresis = signEffort*hysteresis;
+      phaseShift = map(effort, 0, signedHysteresis, 0, phaseShift); //map(value, fromMin, fromMax, toMin, toMax)
+      intAngle -= signEffort*phaseShift;       //readjust with new phase shift
+      angle_1 = mod(intAngle, sineTableSize);  //and re-wrap
+      effort = signedHysteresis;
+    }
+  }
+
   angle_2 = mod(intAngle + (sineTableSize/4), sineTableSize);
+  effort = abs(effort);
+  
+/*
+  //in hysteresis-compensation mode at low effort values, the phase angle has to be determined recursively. we only do one recursion for speed's sake.
+  if(hysteresisMode == true){
+    int cogAngle = intAngle/cogTableSizeDivider;
+    int effortCompensation = signEffort*cogTable[cogAngle];
+    int phaseShiftAdjustment = map(effortCompensation,       0, signedHysteresis,     0, rawPhaseShift);
+                             //map(             value, fromMin,          fromMax, toMin,         toMax)
+    intAngle = intAngle + (signEffort*rawPhaseShift) -(signEffort*phaseShift);
+    angle_1 = mod(intAngle, sineTableSize);
+    angle_2 = mod(intAngle + (sineTableSize/4), sineTableSize);
+  }
+  else if(phaseMode == true){
+    int cogAngle = intAngle/cogTableSizeDivider;
+    int compensatedEffort = rawEffort + signEffort*cogTable[cogAngle];
+  }*/
   
   sin_coil_A  = sin_1[angle_1];
 

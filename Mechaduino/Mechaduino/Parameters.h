@@ -46,7 +46,10 @@ extern volatile int uMAX;
 
 extern int directionSwap;
 extern const int sineTableSize;
-
+extern const int cogTableSizeDivider;
+extern const int cogTableSize;
+extern int hysteresis;
+extern int cogTable[];
 extern const int sin_1[];
 
 //Defines for pins:

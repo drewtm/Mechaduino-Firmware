@@ -44,7 +44,7 @@ void serialCheck() {        //Monitors serial for commands.  Must be called in r
         break;
 
       case 'b':
-        SerialUSB.println(phaseCompare(200));
+        phaseCompare(200);
         break;
 
       case 'e':

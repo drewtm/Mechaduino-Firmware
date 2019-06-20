@@ -11,10 +11,10 @@ volatile float Ts = 1.0/Fs;
 IIR::ORDER  LPForder  = IIR::ORDER::OD2; // Order of low pass filters for velocity (OD1 to OD4)
 
 //position mode PID values.  Depending on your motor/load/desired performance, you will need to tune these values.
-volatile float pKp = 2000.0;  //proportional gain
-volatile float pKi = 5000.0;  //integral gain
+volatile float pKp = 50.0;  //proportional gain
+volatile float pKi = 0.0;  //integral gain
 volatile float pKd = 0.0;     //1000.0;
-volatile float pcut = 200.0;  //velocity low pass filter break frequency in Hz
+volatile float pcut = 500.0;  //velocity low pass filter break frequency in Hz
 volatile float pAWi = 1.0;    //integral anti-windup limit, in rad*s
 
 //velocity mode PID values.  Depending on your motor/load/desired performance, you will need to tune these values.
@@ -48,8 +48,13 @@ int phaseB_scaler = 1024;           // phaseB_scaler/1024 scales the strength of
 volatile int uMAX = int((255.0/3.3)*(iMAX*10.0*rSense));   // 255 for 8-bit pwm, 1023 for 10 bit, must also edit analogFastWrite
 
 int directionSwap = -1;
-
+int hysteresis = 24;
 const int sineTableSize = 2048;
+const int cogTableSizeDivider = 32;
+const int cogTableSize = sineTableSize/cogTableSizeDivider;
+
+int cogTable[cogTableSize] = {11, 10, 11, 12, 11, 12, 12, 11, 11, 9, 8, 8, 7, 9, 11, 12, 14, 16, 18, 20, 21, 22, 22, 21, 21, 20, 19, 17, 16, 15, 14, 12, 12, 12, 12, 12, 12, 11, 11, 11, 10, 9, 8, 7, 7, 8, 8, 10, 13, 15, 18, 18, 20, 22, 23, 22, 21, 20, 19, 17, 16, 14, 13, 13};
+//with hysteresis mode enabled - int cogTable[cogTableSize] = {8, 7, 8, 7, 7, 5, 5, 4, 3, 3, 2, 2, 3, 4, 6, 8, 10, 12, 13, 15, 16, 16, 16, 15, 13, 11, 10, 9, 8, 8, 8, 8, 8, 9, 7, 7, 7, 6, 5, 4, 2, 1, 1, 1, 2, 3, 5, 6, 9, 10, 12, 14, 15, 15, 15, 14, 13, 11, 10, 9, 8, 8, 8, 8};
 
 // A sine lookup table is faster than using the built in sin() function
 // for motor commutation. multiplied by 1024 to allow for integer math.
